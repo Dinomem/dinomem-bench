@@ -7,6 +7,7 @@ so its $ is 0; real adapters report usd per op via OpTiming and this rolls it up
 
 from __future__ import annotations
 
+import os
 import time
 
 from ..adapter import SUTAdapter
@@ -14,8 +15,11 @@ from ..fixtures import load_s7_writes
 from .base import Scenario, MetricResult
 
 WF = "s7-wf"
-N_WRITES = 1000
-N_SEARCHES = 500
+# DESIGN default is 1000 writes + 500 searches. Hosted SUTs with rate/quota limits
+# (Mem0 free tier: 1k retrievals/mo; AgentMem: Gemini extraction quota) can scale
+# down via env to get valid latency percentiles without burning the monthly quota.
+N_WRITES = int(os.environ.get("AMBENCH_S7_WRITES", "1000"))
+N_SEARCHES = int(os.environ.get("AMBENCH_S7_SEARCHES", "500"))
 
 
 def _pct(xs: list[float], p: float) -> float:
@@ -53,12 +57,19 @@ class S7Operational(Scenario):
             # adapters that incur per-search cost (e.g. embeddings) expose it here
             search_usd += float(getattr(sut, "last_search_usd", 0.0) or 0.0)
 
-        note = "no LLM/embedding cost" if (write_usd == 0 and search_usd == 0) else ""
+        observable = getattr(sut, "cost_observable", True)
+        if not observable:
+            note = "cost is a server-side subscription, not client-observable"
+            wcost = scost = None  # don't report a misleading $0
+        else:
+            note = "no LLM/embedding cost" if (write_usd == 0 and search_usd == 0) else ""
+            wcost = round((write_usd / max(1, len(writes))) * 1000, 4)
+            scost = round((search_usd / max(1, N_SEARCHES)) * 1000, 4)
         return [
             self.info("Op.write_p50_ms", round(_pct(write_ms, 50), 3)),
             self.info("Op.write_p95_ms", round(_pct(write_ms, 95), 3)),
             self.info("Op.search_p50_ms", round(_pct(search_ms, 50), 3)),
             self.info("Op.search_p95_ms", round(_pct(search_ms, 95), 3)),
-            self.info("Op.write_$_per_1k", round((write_usd / max(1, len(writes))) * 1000, 4), detail=note),
-            self.info("Op.search_$_per_1k", round((search_usd / max(1, N_SEARCHES)) * 1000, 4), detail=note),
+            self.info("Op.write_$_per_1k", "N/A" if wcost is None else wcost, detail=note),
+            self.info("Op.search_$_per_1k", "N/A" if scost is None else scost, detail=note),
         ]

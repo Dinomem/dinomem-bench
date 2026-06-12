@@ -61,6 +61,7 @@ class AgentMemSUT(SUTAdapter):
     capabilities = frozenset(
         {Capability.SCOPES, Capability.CONFLICTS, Capability.POLICIES, Capability.TEMPORAL}
     )
+    cost_observable = False  # hosted; extraction + embeddings billed server-side
 
     def setup(self) -> None:
         import httpx  # lazy
