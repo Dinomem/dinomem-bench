@@ -33,6 +33,10 @@ class S1Contradictory(Scenario):
                 policies_ok = False
 
         sut.write("Deadline is Friday.", agent_id="planner", scope="team", role="planner", workflow_id=WF)
+        # Let the planner write become index-visible before the conflicting write,
+        # so conflict detection has something to detect (and we don't fire truly
+        # simultaneous writes — that's S4's job, not S1's).
+        self.settle(sut, query="Deadline", agent_id="planner", workflow_id=WF, needle="friday")
 
         # C1.detected — does the system surface the conflict before the 2nd write?
         if sut.supports(Capability.CONFLICTS):

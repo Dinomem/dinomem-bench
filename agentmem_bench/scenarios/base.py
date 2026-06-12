@@ -9,6 +9,7 @@ runs/<id>/scenarios/<scenario>.jsonl.
 from __future__ import annotations
 
 import abc
+import time
 from dataclasses import asdict, dataclass
 from typing import Any
 
@@ -61,3 +62,21 @@ class Scenario(abc.ABC):
     @staticmethod
     def info(metric: str, value: Any, detail: str = "") -> MetricResult:
         return MetricResult(metric, value, INFO, detail)
+
+    @staticmethod
+    def settle(sut: SUTAdapter, *, query: str, agent_id: str, workflow_id, needle: str,
+               timeout: float = 8.0) -> None:
+        """Wait until `needle` is visible via search (lets an async-indexing SUT
+        settle, and avoids hammering hosted backends with truly back-to-back
+        conflicting writes). Returns immediately for in-process SUTs; bounded wait
+        otherwise. Best-effort — never raises."""
+        deadline = time.time() + timeout
+        needle = needle.lower()
+        while time.time() < deadline:
+            try:
+                hits = sut.search(query, agent_id=agent_id, workflow_id=workflow_id)
+            except Exception:
+                hits = []
+            if any(needle in h.content.lower() for h in hits):
+                return
+            time.sleep(0.5)

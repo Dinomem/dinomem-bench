@@ -57,6 +57,53 @@ Predicted (UNVERIFIED until the service is up): S1 detected/resolved ✅, consis
 dependent); S7 latency real / cost 0. The point of running is to confirm or break
 these — especially (1).
 
+## First-run results (2026-06-12, project restored)
+
+| Scenario | Metric | agentmem | vs pgvector |
+|---|---|---|---|
+| S1 | C1.detected | ✅ Y | pgvector N/A — **AgentMem fills it** |
+| S1 | C1.resolved | ✅ Y (planner_wins blocked the executor) | pgvector N/A — **AgentMem fills it** |
+| S1 | C1.consistent | ✅ Y | both ✅ |
+| S2 | T1.bitemporal | ℹ️ Y (atTime accepted) | pgvector ℹ️ N |
+| S2 | T1.t0 / t1 | ❌ N / ❌ N — see finding | pgvector N/A |
+| S3 | isolated / team_visible / cross_workflow | ✅ Y ×3 | both ✅ — not differentiating |
+| S4 | converge / deterministic / lossless | — N/A ×3 (no replica API) | both N/A |
+| S6 | P.*.correct | ⛔ blocked (Gemini quota) | pgvector N/A |
+| S7 | latency / cost | not run (quota + 1000-write cost) | pgvector ran |
+
+**The headline:** AgentMem **fills S1** (conflict detection + `planner_wins`
+resolution) where the pgvector floor is N/A — the real, measured differentiation a
+raw vector store can't provide. S3 (scope) is passed by both, so it doesn't
+separate them; S4 is N/A for both (no replica API).
+
+### Findings the run surfaced
+1. **S2 temporal gap.** `atTime` is accepted (bitemporal=Y) but `at_time=T0` and
+   `=T1` both returned *both* contradicting facts. Under the default `ignore`
+   policy AgentMem doesn't supersede, so both stay valid and `atTime` doesn't
+   disambiguate "what was true at T". *Caveat:* my adapter uses client-side write
+   timestamps (the `/write` response returns only `writeId`, no `created_at`), so
+   the T0/T1 points are approximate — a clean S2 needs server timestamps + a
+   `timestamp_wins` variant. Recorded as a real gap pending that follow-up.
+2. **S4 untestable black-box.** No replica/sync API → N/A even for AgentMem.
+   *Actionable: expose a replica/vector-clock test hook.*
+3. **Operational fragility (the big one).** Conflict detection + extraction call
+   **Gemini 2.5 Flash server-side**, and under quota they return **5xx, not graceful
+   degradation**: `/conflicts` → `502 "[GoogleGenerativeAI] 429 You exceeded your
+   current quota"`; policy `write` → `500 "Internal server error"`. The first S1 run
+   passed; reruns + S6 failed once the free-tier Gemini quota was burned (every
+   write also fires a background extraction). *Actionable: graceful degradation /
+   queue / fallback when the extraction LLM is rate-limited; and S7's 1,000-write
+   workload needs real Gemini quota.* This is why S6/S5/S7 are deferred to a quota
+   reset.
+
+### Harness fixes from this run (committed)
+- `atTime` must be `Z`-suffixed (Zod `.datetime()` rejects `+00:00`).
+- Adapter raises with the response body, so a crash detail is debuggable
+  (that's how the Gemini-429 root cause was found, not an opaque MDN link).
+- `Scenario.settle()` waits for the first write to be index-visible before the
+  conflicting one (reliable conflict detection; no truly-simultaneous writes —
+  that's S4's job).
+
 ## To run (once the project is restored)
 ```bash
 AGENTMEM_API_KEY=... .venv/bin/python -m agentmem_bench --sut agentmem --scenarios all

@@ -45,6 +45,16 @@ def _parse_ts(s: str | None) -> datetime:
         return datetime.now(timezone.utc)
 
 
+def _iso_z(dt: datetime) -> str:
+    """The API's Zod `.datetime()` accepts only 'Z', not '+00:00' offsets."""
+    return dt.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _raise(r) -> None:
+    """Raise with the response body included, so a crash detail is debuggable."""
+    raise RuntimeError(f"HTTP {r.status_code} {r.request.method} {r.request.url.path}: {r.text[:300]}")
+
+
 class AgentMemSUT(SUTAdapter):
     name = "agentmem"
     version = "api-v1 (agentmem-py 0.2.1)"
@@ -105,8 +115,7 @@ class AgentMemSUT(SUTAdapter):
                 }
             )
             return WriteResult(id="", created_at=datetime.now(timezone.utc), ok=False)
-        r.raise_for_status()  # genuine error -> surfaces as a scenario crash
-        return WriteResult(id="", created_at=datetime.now(timezone.utc), ok=False)
+        _raise(r)  # genuine error -> surfaces as a scenario crash (with body)
 
     def search(self, query, *, agent_id, workflow_id=None, top_k=5, at_time=None) -> list[Hit]:
         body: dict = {"query": query, "agentId": agent_id, "topK": top_k}
@@ -114,9 +123,10 @@ class AgentMemSUT(SUTAdapter):
         if wf is not None:
             body["workflowId"] = wf
         if at_time is not None:
-            body["atTime"] = at_time.astimezone(timezone.utc).isoformat()
+            body["atTime"] = _iso_z(at_time)
         r = self._http.post("/v1/memory/search", json=body)
-        r.raise_for_status()
+        if not r.is_success:
+            _raise(r)
         rows = r.json()
         if isinstance(rows, dict):
             rows = rows.get("results", rows.get("hits", []))
@@ -140,7 +150,8 @@ class AgentMemSUT(SUTAdapter):
         if wf is not None:
             body["workflowId"] = wf
         r = self._http.post("/v1/memory/conflicts", json=body)
-        r.raise_for_status()
+        if not r.is_success:
+            _raise(r)
         data = r.json()
         return [
             Conflict(
@@ -159,7 +170,8 @@ class AgentMemSUT(SUTAdapter):
         if wf is not None:
             body["workflowId"] = wf
         r = self._http.put("/v1/policies", json=body)
-        r.raise_for_status()
+        if not r.is_success:
+            _raise(r)
 
     def pending_events(self, *, workflow_id=None) -> list[dict]:
         # The client can't observe webhook delivery; the observable HITL signal is

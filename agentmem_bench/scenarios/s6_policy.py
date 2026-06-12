@@ -25,6 +25,7 @@ class S6Policy(Scenario):
         sut.setup()
         sut.set_policy(policy, workflow_id=WF)
         sut.write("Deadline is Friday.", agent_id="planner", scope="team", role="planner", workflow_id=WF)
+        self.settle(sut, query="Deadline", agent_id="planner", workflow_id=WF, needle="friday")
         sut.write("Deadline is Monday.", agent_id="executor", scope="team", role="executor", workflow_id=WF)
         return [h.content.lower() for h in sut.search("Deadline", agent_id="reader", workflow_id=WF)]
 
