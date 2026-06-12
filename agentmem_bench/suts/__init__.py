@@ -20,10 +20,17 @@ def _make_pgvector() -> SUTAdapter:
     return PgvectorSUT()
 
 
+def _make_agentmem() -> SUTAdapter:
+    from .agentmem import AgentMemSUT
+
+    return AgentMemSUT()
+
+
 # name -> zero-arg factory (lazy import inside).
 REGISTRY: dict[str, Callable[[], SUTAdapter]] = {
     "fake": _make_fake,
     "pgvector": _make_pgvector,
+    "agentmem": _make_agentmem,
 }
 
 
