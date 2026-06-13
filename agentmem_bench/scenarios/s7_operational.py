@@ -7,6 +7,7 @@ so its $ is 0; real adapters report usd per op via OpTiming and this rolls it up
 
 from __future__ import annotations
 
+import math
 import os
 import time
 
@@ -28,6 +29,23 @@ def _pct(xs: list[float], p: float) -> float:
     s = sorted(xs)
     i = min(len(s) - 1, int(round((p / 100) * (len(s) - 1))))
     return s[i]
+
+
+def _stats(xs: list[float]) -> dict[str, float]:
+    """Distribution summary over the per-op latency samples (n = #ops in this run)."""
+    if not xs:
+        return {"n": 0, "mean": 0.0, "std": 0.0, "p50": 0.0, "p95": 0.0, "p99": 0.0}
+    n = len(xs)
+    mean = sum(xs) / n
+    std = math.sqrt(sum((x - mean) ** 2 for x in xs) / n) if n > 1 else 0.0
+    return {
+        "n": n,
+        "mean": round(mean, 3),
+        "std": round(std, 3),
+        "p50": round(_pct(xs, 50), 3),
+        "p95": round(_pct(xs, 95), 3),
+        "p99": round(_pct(xs, 99), 3),
+    }
 
 
 class S7Operational(Scenario):
@@ -57,6 +75,7 @@ class S7Operational(Scenario):
             # adapters that incur per-search cost (e.g. embeddings) expose it here
             search_usd += float(getattr(sut, "last_search_usd", 0.0) or 0.0)
 
+        w, s = _stats(write_ms), _stats(search_ms)
         observable = getattr(sut, "cost_observable", True)
         if not observable:
             note = "cost is a server-side subscription, not client-observable"
@@ -66,10 +85,15 @@ class S7Operational(Scenario):
             wcost = round((write_usd / max(1, len(writes))) * 1000, 4)
             scost = round((search_usd / max(1, N_SEARCHES)) * 1000, 4)
         return [
-            self.info("Op.write_p50_ms", round(_pct(write_ms, 50), 3)),
-            self.info("Op.write_p95_ms", round(_pct(write_ms, 95), 3)),
-            self.info("Op.search_p50_ms", round(_pct(search_ms, 50), 3)),
-            self.info("Op.search_p95_ms", round(_pct(search_ms, 95), 3)),
+            # full per-op distribution (n = ops in this run) for write + search
+            self.info("Op.write_mean_ms", w["mean"], detail=f"std {w['std']} over n={w['n']}"),
+            self.info("Op.write_p50_ms", w["p50"]),
+            self.info("Op.write_p95_ms", w["p95"]),
+            self.info("Op.write_p99_ms", w["p99"]),
+            self.info("Op.search_mean_ms", s["mean"], detail=f"std {s['std']} over n={s['n']}"),
+            self.info("Op.search_p50_ms", s["p50"]),
+            self.info("Op.search_p95_ms", s["p95"]),
+            self.info("Op.search_p99_ms", s["p99"]),
             self.info("Op.write_$_per_1k", "N/A" if wcost is None else wcost, detail=note),
             self.info("Op.search_$_per_1k", "N/A" if scost is None else scost, detail=note),
         ]
