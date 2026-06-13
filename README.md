@@ -68,13 +68,30 @@ python -m agentmem_bench.compare      # reads runs/ -> results/COMPARISON.md
 for each (SUT, scenario) it uses the most recent run with real metrics and prints
 provenance. **The current matrix is committed at [`results/COMPARISON.md`](./results/COMPARISON.md).**
 
-Headline so far (pgvector floor vs mem0 vs agentmem): on multi-agent
-coordination, **only AgentMem fills S1** (conflict detection + resolution) — the
-one metric that needs a real memory system. **Mem0 ties the raw vector floor**
-(no conflict/policy/temporal/CRDT API) and *loses* `S3.team_visible` to it
-(content-dedup ignores scope changes). S3/S5 don't separate anyone; S4 is N/A for
-every hosted system (no replica API). AgentMem's S5/S6/S7 await a Gemini-quota
-reset; its S2 temporal has a gap.
+### Headline (all 7 DESIGN systems)
+
+Different systems fill different coordination gaps — "best memory system" is a
+category error (DESIGN §3):
+
+- **S1 (contradiction detect + resolve): only AgentMem.** Every floor system
+  (pgvector / mem0 / supermemory / langmem) and the graph systems (zep / cognee)
+  are N/A — no conflict-surfacing/policy API.
+- **S2 (temporal validity): only Zep.** It auto-invalidates a fact when a later
+  one contradicts it (`invalid_at`), so `at_time` returns the right fact. AgentMem
+  accepts `at_time` but returns both (gap); everyone else is N/A.
+- **S3 scope / S5 isolation:** the verbatim floors pass cleanly (pgvector, langmem,
+  + AgentMem). mem0 / supermemory **lose `S3.team_visible`** (content dedup/aggregation
+  ignores scope changes). zep / cognee are N/A (graph-centric, no per-agent scope;
+  cognee's zero-setup mode doesn't isolate at all — 100% leak — see its note).
+- **S4 (CRDT): N/A for every system** — no hosted/self-host SUT exposes a
+  replica/sync API to drive the convergence test (only the FakeSUT reference can).
+- **S7 latency:** langmem / zep / pgvector ~300 ms · mem0 ~1.1 s · supermemory
+  ~2.2 s · **cognee ~21 s** (add+cognify per write). AgentMem S5/S6/S7 await a
+  Gemini-quota reset; its S6 also surfaced a backend 5xx under rapid policy writes.
+
+The full per-metric matrix is committed at
+[`results/COMPARISON.md`](./results/COMPARISON.md); each system's writeup is in
+[`notes/`](./notes).
 
 ### Adding a system under test
 

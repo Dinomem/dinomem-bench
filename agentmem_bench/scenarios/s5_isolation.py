@@ -6,6 +6,7 @@ searches for content known to live in workflow B. Any non-global leak is a bug.
 
 from __future__ import annotations
 
+import os
 import random
 
 from ..adapter import SUTAdapter
@@ -14,7 +15,9 @@ from .base import Scenario, MetricResult
 
 WF_A = "s5-wf-a"
 WF_B = "s5-wf-b"
-N = 50
+# DESIGN default 50 writes/workflow; scale down for very slow SUTs (e.g. Cognee,
+# ~tens of seconds per write) via env. Latency/leakage signal holds at small N.
+N = int(os.environ.get("AMBENCH_S5_WRITES", "50"))
 
 
 class S5Isolation(Scenario):

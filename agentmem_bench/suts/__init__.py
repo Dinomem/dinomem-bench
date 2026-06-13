@@ -50,6 +50,12 @@ def _make_langmem() -> SUTAdapter:
     return LangMemSUT()
 
 
+def _make_cognee() -> SUTAdapter:
+    from .cognee_sut import CogneeSUT
+
+    return CogneeSUT()
+
+
 # name -> zero-arg factory (lazy import inside).
 REGISTRY: dict[str, Callable[[], SUTAdapter]] = {
     "fake": _make_fake,
@@ -59,6 +65,7 @@ REGISTRY: dict[str, Callable[[], SUTAdapter]] = {
     "supermemory": _make_supermemory,
     "zep": _make_zep,
     "langmem": _make_langmem,
+    "cognee": _make_cognee,
 }
 
 
