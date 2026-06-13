@@ -44,6 +44,12 @@ def _make_zep() -> SUTAdapter:
     return ZepSUT()
 
 
+def _make_langmem() -> SUTAdapter:
+    from .langmem import LangMemSUT
+
+    return LangMemSUT()
+
+
 # name -> zero-arg factory (lazy import inside).
 REGISTRY: dict[str, Callable[[], SUTAdapter]] = {
     "fake": _make_fake,
@@ -52,6 +58,7 @@ REGISTRY: dict[str, Callable[[], SUTAdapter]] = {
     "mem0": _make_mem0,
     "supermemory": _make_supermemory,
     "zep": _make_zep,
+    "langmem": _make_langmem,
 }
 
 
