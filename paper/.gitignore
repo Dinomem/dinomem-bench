@@ -1,0 +1,15 @@
+# Generated build artifacts (regenerate with `make` / `make arxiv`).
+# NB: figures/*.pdf ARE committed (source figures); only the built paper output here.
+agentmem-bench.pdf
+agentmem-bench-arxiv.tar.gz
+arxiv-build/
+
+# LaTeX aux
+*.aux
+*.log
+*.bbl
+*.blg
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
