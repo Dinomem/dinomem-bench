@@ -1,0 +1,8 @@
+{
+  "_comment": "DinoMem hosted API. The maintainers' own system, configured like any other SUT. Secrets (DINOMEM_API_KEY) stay in env. Wire new keys via config.load('dinomem').get(...) if you extend the adapter.",
+  "_reads": "dinomem_bench/suts/dinomem.py (base_url via env DINOMEM_BASE_URL today)",
+  "base_url": "https://lwbwcuuzoituanwhekyo.supabase.co/functions/v1/api",
+  "embed_model": "gemini-embedding-2",
+  "extraction_model": "gemini-2.5-flash",
+  "api_version": "v1"
+}

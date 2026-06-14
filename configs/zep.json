@@ -1,0 +1,6 @@
+{
+  "_comment": "Zep Cloud (hosted temporal knowledge graph). Secrets (ZEP_API_KEY) stay in env.",
+  "_reads": "dinomem_bench/suts/zep.py",
+  "client_version": "zep-cloud-3.x",
+  "api": "cloud"
+}

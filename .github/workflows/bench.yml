@@ -1,0 +1,115 @@
+name: bench
+
+# Reproducibility CI for dinomem-bench.
+#   - On every push / PR: lint, smoke-test, validate the human-validation sample,
+#     and run the stdlib-only FakeSUT benchmark end-to-end (zero secrets needed).
+#   - On a version tag (v*): additionally publish the run output (runs/, which is
+#     gitignored) as a GitHub Release asset — the published, reproducible artifact,
+#     not committed to git history (see DESIGN §7 / README).
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Lint + smoke + a full FakeSUT run on every push/PR. Core is stdlib-only, so
+  # this needs no API keys and no external services.
+  # ---------------------------------------------------------------------------
+  test:
+    name: lint + smoke + fake bench
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install (dev extras — core is stdlib-only)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: List SUTs + scenarios
+        run: python -m dinomem_bench --list
+
+      - name: Ruff
+        run: ruff check .
+
+      - name: Smoke tests (no pytest needed)
+        run: python tests/test_smoke.py
+
+      - name: pytest
+        run: python -m pytest -q
+
+      - name: Human-validation sample agrees
+        run: python human_validation/validate.py --check
+
+      - name: Pre-flight cost estimate is $0 for FakeSUT
+        run: python -m dinomem_bench --sut fake --scenarios all --estimate-cost
+
+      - name: Run FakeSUT benchmark (full S1–S7)
+        run: python -m dinomem_bench --sut fake --scenarios all
+
+      - name: Regenerate comparison matrix from runs/
+        run: python -m dinomem_bench.compare --runs runs --out runs/COMPARISON.md
+
+      - name: Upload run artifact (CI inspection)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runs-py${{ matrix.python-version }}
+          path: runs/
+          if-no-files-found: warn
+
+  # ---------------------------------------------------------------------------
+  # On a version tag, publish the FakeSUT run output as a Release asset. runs/ is
+  # gitignored, so this is how a reproducible run is distributed (DESIGN §7).
+  # ---------------------------------------------------------------------------
+  release-artifact:
+    name: publish runs/ as a release asset
+    needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # needed to create / upload to a Release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (stdlib-only core)
+        run: pip install -e .
+
+      - name: Run FakeSUT benchmark + comparison matrix
+        run: |
+          python -m dinomem_bench --sut fake --scenarios all
+          python -m dinomem_bench.compare --runs runs --out runs/COMPARISON.md
+
+      - name: Package runs/ into a tarball
+        run: |
+          tar -czf "dinomem-bench-runs-${GITHUB_REF_NAME}.tar.gz" runs
+          ls -la dinomem-bench-runs-*.tar.gz
+
+      - name: Publish to the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dinomem-bench-runs-*.tar.gz
+            runs/COMPARISON.md
+          fail_on_unmatched_files: true

@@ -1,6 +1,18 @@
 # dinomem-bench — cross-system comparison
 
-Generated from 28 run(s) in `runs/`. Per (SUT, scenario) the most
+> **Conflict of interest / integrity.** DinoMem's maintainers build *and* run
+> this benchmark, and **DinoMem is one of the systems under test**. To keep that
+> from biasing the result we: publish the full harness + the deterministic
+> assertions that decide every metric (no LLM-judge — see [`METHODOLOGY.md`](../METHODOLOGY.md));
+> record provenance (run id, git sha, pinned models) for every cell; **report
+> every metric, including the ones DinoMem fails or is N/A on** (enumerated in
+> *Where DinoMem loses / is N/A* below); test all systems only through their
+> public, black-box APIs; and invite competitors to PR their own adapters /
+> config overrides (maintainers keep merge rights on harness code only — see
+> [`CONTRIBUTING.md`](../CONTRIBUTING.md)). DinoMem is one SUT here, not the
+> subject of this repo.
+
+Generated from 20 run(s) in `runs/`. Per (SUT, scenario) the most
 recent run with real metrics is used (provenance at the bottom). FakeSUT is
 the in-process reference, not a system under test.
 
@@ -50,17 +62,35 @@ the in-process reference, not a system under test.
 | dinomem | 12 | 2 | 3 | 0 | 7 |
 | fake | 17 | 0 | 0 | 0 | 7 |
 
+## Where DinoMem loses / is N/A
+
+DinoMem is reported like every other system under test. Across the selected results it **fails 2**, **crashes on 0**, and is **N/A on 3** metric cell(s). Every one is listed below (passes/operational `info` are in the scorecard above; this section is only the non-wins):
+
+### ❌ Fails (wrong answer vs the scenario assertion)
+
+| Scenario | Metric | DinoMem value | Note |
+|---|---|---|---|
+| S2 | T1.t0 | ❌ N |  |
+| S2 | T1.t1 | ❌ N |  |
+
+### 💥 Crashes (raised / 5xx / timeout, after the one re-run)
+
+_None — DinoMem has no `crash` cells in these results._
+
+### — N/A (DinoMem's API can't perform this metric — not a failure)
+
+| Scenario | Metric | DinoMem value | Note |
+|---|---|---|---|
+| S4 | S4.converge | — N/A | shared: every real system is N/A here too |
+| S4 | S4.lossless | — N/A | shared: every real system is N/A here too |
+| S4 | S4.deterministic | — N/A | shared: every real system is N/A here too |
+
+_Reading this honestly: S2 temporal (`T1.t0`/`T1.t1`) is a real **failure** — DinoMem accepts `at_time` but returns both the old and new fact, where Zep correctly invalidates the stale one. S4 CRDT is **N/A for every system, DinoMem included** — no shipping system exposes a black-box replica/vector-clock API the convergence test can drive (CRDT is a DinoMem V3 roadmap item, not a measured guarantee). Any crash cell is a genuine backend defect, not hidden._
+
 ## Provenance
 
 | SUT | scenario | run |
 |---|---|---|
-| dinomem | S1 | `2026-06-12-133803` |
-| dinomem | S2 | `2026-06-12-134438` |
-| dinomem | S3 | `2026-06-12-133803` |
-| dinomem | S4 | `2026-06-12-133803` |
-| dinomem | S5 | `2026-06-13-055841` |
-| dinomem | S6 | `2026-06-13-085930` |
-| dinomem | S7 | `2026-06-13-055841` |
 | cognee | S1 | `2026-06-13-053651` |
 | cognee | S2 | `2026-06-13-053651` |
 | cognee | S3 | `2026-06-13-054802` |
@@ -68,6 +98,13 @@ the in-process reference, not a system under test.
 | cognee | S5 | `2026-06-13-054802` |
 | cognee | S6 | `2026-06-13-053651` |
 | cognee | S7 | `2026-06-13-053651` |
+| dinomem | S1 | `2026-06-12-133803` |
+| dinomem | S2 | `2026-06-12-134438` |
+| dinomem | S3 | `2026-06-12-133803` |
+| dinomem | S4 | `2026-06-12-133803` |
+| dinomem | S5 | `2026-06-13-055841` |
+| dinomem | S6 | `2026-06-13-085930` |
+| dinomem | S7 | `2026-06-13-055841` |
 | fake | S1 | `2026-06-12-132140` |
 | fake | S2 | `2026-06-12-132140` |
 | fake | S3 | `2026-06-12-132140` |

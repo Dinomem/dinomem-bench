@@ -7,10 +7,12 @@ it can enforce scope + workflow isolation with a WHERE clause (so it PASSES
 S3/S5), but it has no conflict detection, policies, temporal validity, or CRDT
 semantics (so those metrics score N/A).
 
-Config via env:
-  DATABASE_URL    Postgres DSN (default postgresql://postgres:bench@localhost:5433/bench)
-  OPENAI_API_KEY  for embeddings
-  PGVECTOR_EMBED_MODEL  (default text-embedding-3-small)
+Config (override order: env > configs/pgvector.json > default — see config.py /
+CONTRIBUTING.md). A competitor can tune any of these without touching harness code:
+  DATABASE_URL          Postgres DSN (config key `dsn`)
+  OPENAI_API_KEY        for embeddings
+  PGVECTOR_EMBED_MODEL  embedding model string (config key `embed_model`)
+  PGVECTOR_IVFFLAT_LISTS  ivfflat `lists` knob (config key `ivfflat_lists`, default 100)
 
 Deps (optional extra): psycopg[binary], openai.
 """
@@ -21,15 +23,12 @@ import os
 import time
 
 from ..adapter import SUTAdapter, Unsupported
+from ..config import load as load_config
 from ..models import OPENAI_EMBED_3_SMALL
 from ..types import Capability, Hit, WriteResult
 
 _DEFAULT_DSN = "postgresql://postgres:bench@localhost:5433/bench"
 _TABLE = "amb_memories"
-# Pinned per DESIGN §6 (no `latest`) — model string + price live in models.py.
-# PGVECTOR_EMBED_MODEL can override the string (dims/price then assume 3-small).
-_EMBED_MODEL = os.environ.get("PGVECTOR_EMBED_MODEL", OPENAI_EMBED_3_SMALL.name)
-_EMBED_DIMS = OPENAI_EMBED_3_SMALL.dims
 _USD_PER_1M_TOKENS = OPENAI_EMBED_3_SMALL.usd_per_1k_tokens * 1000
 
 
@@ -39,15 +38,26 @@ def _vec_literal(emb: list[float]) -> str:
 
 class PgvectorSUT(SUTAdapter):
     name = "pgvector"
-    version = f"pg16+{_EMBED_MODEL}"
+    # Pinned per DESIGN §6 (no `latest`); the embed model can be overridden via
+    # config/env (dims/price then assume text-embedding-3-small). version is
+    # finalised in setup() once the config-resolved model is known.
+    version = f"pg16+{OPENAI_EMBED_3_SMALL.name}"
     capabilities = frozenset({Capability.SCOPES})  # WHERE-clause filtering only
 
     def setup(self) -> None:
         import psycopg  # lazy: only when this SUT is selected
         from openai import OpenAI
 
+        # Resolve knobs from the documented config/env precedence.
+        cfg = load_config("pgvector")
+        self._embed_model = cfg.get("embed_model", OPENAI_EMBED_3_SMALL.name,
+                                    env="PGVECTOR_EMBED_MODEL")
+        self._embed_dims = OPENAI_EMBED_3_SMALL.dims
+        self._ivfflat_lists = cfg.get_int("ivfflat_lists", 100, env="PGVECTOR_IVFFLAT_LISTS")
+        self.version = f"pg16+{self._embed_model}"
+
         self._oai = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-        dsn = os.environ.get("DATABASE_URL", _DEFAULT_DSN)
+        dsn = cfg.get("dsn", _DEFAULT_DSN, env="DATABASE_URL")
         # Postgres may still be starting; retry the first connect briefly.
         last = None
         for _ in range(20):
@@ -74,12 +84,13 @@ class PgvectorSUT(SUTAdapter):
                 scope       text not null,
                 workflow_id text,
                 created_at  timestamptz not null default now(),
-                embedding   vector({_EMBED_DIMS})
+                embedding   vector({self._embed_dims})
             )
             """
         )
         c.execute(
-            f"create index on {_TABLE} using ivfflat (embedding vector_cosine_ops) with (lists = 100)"
+            f"create index on {_TABLE} using ivfflat (embedding vector_cosine_ops) "
+            f"with (lists = {self._ivfflat_lists})"
         )
 
     def teardown(self) -> None:
@@ -91,7 +102,7 @@ class PgvectorSUT(SUTAdapter):
 
     # --- embeddings ---------------------------------------------------------
     def _embed(self, text: str) -> tuple[list[float], float]:
-        resp = self._oai.embeddings.create(model=_EMBED_MODEL, input=text)
+        resp = self._oai.embeddings.create(model=self._embed_model, input=text)
         usd = (resp.usage.total_tokens / 1_000_000) * _USD_PER_1M_TOKENS
         return resp.data[0].embedding, usd
 

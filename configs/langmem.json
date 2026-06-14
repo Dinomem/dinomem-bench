@@ -1,0 +1,5 @@
+{
+  "_comment": "LangMem self-host floor (LangGraph InMemoryStore + OpenAI embeddings).",
+  "_reads": "dinomem_bench/suts/langmem.py setup()",
+  "embed_model": "text-embedding-3-small"
+}

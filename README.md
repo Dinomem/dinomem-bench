@@ -4,6 +4,28 @@ A reproducible benchmark for **multi-agent memory systems** — the gap LoCoMo, 
 
 This repo is the methodology + harness + datasets, not a product. Read [`DESIGN.md`](./DESIGN.md) before running anything.
 
+> ## ⚠️ Conflict of interest / integrity
+>
+> **DinoMem's maintainers build *and* run this benchmark, and DinoMem is one of the
+> systems under test.** That is a real conflict of interest, so transparency is the
+> whole point of this repo. Our mitigations:
+>
+> - **Published harness + assertions.** The deterministic assertions in the scenario
+>   code *are* the judge — there is no LLM-as-judge to hide behind. Every metric's
+>   exact predicate is documented in [`METHODOLOGY.md`](./METHODOLOGY.md).
+> - **Provenance on every cell.** Run id, git sha, and pinned model versions are
+>   recorded for each result so anyone can re-run and reproduce it.
+> - **We report *every* metric — including the ones DinoMem fails or is N/A on.** The
+>   matrix has an explicit *"Where DinoMem loses / is N/A"* section; see
+>   [`results/COMPARISON.md`](./results/COMPARISON.md). (DinoMem **fails** S2 temporal
+>   and is **N/A on S4 CRDT like everyone else**.)
+> - **Black-box, public APIs only.** No system is tested through privileged internals.
+> - **Competitors are invited to PR their own adapters / config overrides.** The
+>   maintainers keep merge rights on *harness code only* — see
+>   [`CONTRIBUTING.md`](./CONTRIBUTING.md) and [`configs/`](./configs).
+>
+> DinoMem is one SUT here, not the subject of this repo. Full disclosure: `DESIGN.md §9`.
+
 ## Why another benchmark
 
 LoCoMo (Maharana et al., ACL 2024) and LongMemEval (ICLR 2025) measure **single-agent long-term memory** — does the model recall what was said earlier? Useful, but Letta has publicly argued these measure retrieval, not agent memory ([Letta blog, 2025](https://www.letta.com/blog/long-conversation-locomo)). And **no existing benchmark stresses multi-agent coordination on memory**: contradictory writes, scope leakage, CRDT convergence, policy enforcement.

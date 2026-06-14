@@ -1,0 +1,6 @@
+{
+  "_comment": "Mem0 hosted (free tier). Secrets (MEM0_API_KEY) stay in env.",
+  "_reads": "dinomem_bench/suts/mem0.py (hosted; infer=false verbatim store)",
+  "client_version": "mem0ai-2.0.5",
+  "infer": false
+}

@@ -1,0 +1,7 @@
+{
+  "_comment": "pgvector floor. Override order: env > this file > adapter default. Secrets (OPENAI_API_KEY) stay in env, never here.",
+  "_reads": "dinomem_bench/suts/pgvector.py setup()",
+  "embed_model": "text-embedding-3-small",
+  "dsn": "postgresql://postgres:bench@localhost:5433/bench",
+  "ivfflat_lists": 100
+}

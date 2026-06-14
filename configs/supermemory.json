@@ -1,0 +1,5 @@
+{
+  "_comment": "Supermemory (hosted). Secrets (SUPERMEMORY_API_KEY) stay in env. Indexing is slow (~30-60s); see AMBENCH_SETTLE_TIMEOUT.",
+  "_reads": "dinomem_bench/suts/supermemory.py",
+  "client_version": "supermemory-3.x"
+}

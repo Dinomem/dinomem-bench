@@ -1,0 +1,6 @@
+{
+  "_comment": "Cognee self-host (zero-infra SQLite+LanceDB+Kuzu). Embeddings + extraction via OpenAI; OPENAI_API_KEY stays in env.",
+  "_reads": "dinomem_bench/suts/cognee_sut.py",
+  "embed_model": "text-embedding-3-small",
+  "extraction_model": "gpt-4o-mini-2024-07-18"
+}

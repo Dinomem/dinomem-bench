@@ -10,7 +10,9 @@ No conflict/policy/temporal/CRDT API → those are N/A. Capabilities: {SCOPES}.
 Synchronous + in-process (the only latency is the OpenAI embedding call), so no
 async-indexing settle is needed.
 
-Config: OPENAI_API_KEY. Optional extra: langmem, langchain-openai.
+Config (override order: env > configs/langmem.json > default — see config.py /
+CONTRIBUTING.md): OPENAI_API_KEY; `embed_model` (env `LANGMEM_EMBED_MODEL`).
+Optional extra: langmem, langchain-openai.
 """
 
 from __future__ import annotations
@@ -20,17 +22,18 @@ import uuid
 from datetime import datetime, timezone
 
 from ..adapter import SUTAdapter, Unsupported
+from ..config import load as load_config
 from ..models import OPENAI_EMBED_3_SMALL
 from ..types import Capability, Hit, WriteResult
 
-# Pinned model string + dims from the central registry (DESIGN §6, no `latest`).
-_EMBED_MODEL = OPENAI_EMBED_3_SMALL.name
+# Pinned model dims from the central registry (DESIGN §6, no `latest`). The model
+# string is config/env-overridable; dims/price assume text-embedding-3-small.
 _EMBED_DIMS = OPENAI_EMBED_3_SMALL.dims
 
 
 class LangMemSUT(SUTAdapter):
     name = "langmem"
-    version = f"langmem-0.0.30 + langgraph InMemoryStore ({_EMBED_MODEL})"
+    version = f"langmem-0.0.30 + langgraph InMemoryStore ({OPENAI_EMBED_3_SMALL.name})"
     capabilities = frozenset({Capability.SCOPES})
     cost_observable = False  # OpenAI embedding cost (not instrumented here)
 
@@ -40,7 +43,10 @@ class LangMemSUT(SUTAdapter):
 
         if not os.environ.get("OPENAI_API_KEY"):
             raise RuntimeError("OPENAI_API_KEY is required for the langmem SUT")
-        emb = OpenAIEmbeddings(model=_EMBED_MODEL)
+        cfg = load_config("langmem")
+        embed_model = cfg.get("embed_model", OPENAI_EMBED_3_SMALL.name, env="LANGMEM_EMBED_MODEL")
+        self.version = f"langmem-0.0.30 + langgraph InMemoryStore ({embed_model})"
+        emb = OpenAIEmbeddings(model=embed_model)
         # Semantic index over the "content" field — this is what makes store.search
         # a vector search rather than a key lookup.
         self._store = InMemoryStore(index={"dims": _EMBED_DIMS, "embed": emb, "fields": ["content"]})
