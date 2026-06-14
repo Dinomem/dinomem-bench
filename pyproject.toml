@@ -11,7 +11,7 @@ license = { text = "Apache-2.0" }
 dependencies = []
 
 [project.optional-dependencies]
-# Installed per-SUT so a minimal run needs nothing. e.g. `uv sync --extra mem0`.
+# Installed per-SUT so a minimal run needs nothing. e.g. `pip install -e ".[mem0]"`.
 mem0 = ["mem0ai>=0.1"]
 pgvector = ["psycopg[binary]>=3.1", "openai>=1.0"]
 dinomem = ["httpx>=0.24"]
@@ -34,6 +34,9 @@ packages = ["dinomem_bench"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+# The LaTeX paper build script (`make -C paper`) is not harness code and uses a
+# compact one-statement-per-axis matplotlib style; it is not part of the lint gate.
+extend-exclude = ["paper"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -25,6 +25,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="'all' or comma list of ids/slugs, e.g. 's1,s4'.")
     p.add_argument("--out", default="runs", help="output root dir (default: runs/)")
     p.add_argument("--list", action="store_true", help="list SUTs + scenarios and exit")
+    p.add_argument("--estimate-cost", action="store_true",
+                   help="print the pre-flight USD cost estimate and exit (no run)")
+    p.add_argument("--max-usd", type=float, default=30.0,
+                   help="abort before running if the estimated cost exceeds this (default: 30.0)")
     p.add_argument("--version", action="version", version=f"dinomem-bench {__version__}")
     args = p.parse_args(argv)
 
@@ -46,6 +50,21 @@ def main(argv: list[str] | None = None) -> int:
         selected = scn.select(args.scenarios)
     except KeyError as e:
         p.error(str(e))
+
+    # Pre-flight cost estimate (op-counts x pinned prices; no SUT import / network).
+    from .cost import abort_message, estimate, format_table
+
+    est = estimate(sut_names, [s.id for s in selected])
+
+    if args.estimate_cost:
+        print(format_table(est, args.max_usd))
+        return 0
+
+    # Budget guard: abort BEFORE any SUT work if the estimate exceeds --max-usd.
+    if est.total_usd > args.max_usd:
+        print(format_table(est, args.max_usd), file=sys.stderr)
+        print("\n" + abort_message(est, args.max_usd), file=sys.stderr)
+        return 2
 
     # late import so --list/--help don't pay for it
     from .runner import run

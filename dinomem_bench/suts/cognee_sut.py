@@ -28,7 +28,7 @@ import uuid
 from datetime import datetime, timezone
 
 from ..adapter import SUTAdapter, Unsupported
-from ..types import Capability, Hit, WriteResult
+from ..types import Hit, WriteResult
 
 
 def _safe(s: str) -> str:

@@ -20,22 +20,47 @@ We run the same scenarios against every shipped memory system (Mem0, Zep, Cognee
 
 ## Status
 
-**Harness skeleton landed (v0.1, Week-1 scope).** The adapter interface, a
-reference `FakeSUT`, all seven scenarios (S1–S7) with the metric names from
-[`DESIGN.md`](./DESIGN.md), the run loop, and the output format are implemented
-and validated end-to-end. Real SUT adapters (pgvector, DinoMem, Mem0, …) are
-next. See [`DESIGN.md`](./DESIGN.md) for the methodology.
+**Running (v0.1).** The adapter interface, a reference `FakeSUT`, all seven
+scenarios (S1–S7) with the metric names from [`DESIGN.md`](./DESIGN.md), the run
+loop, and the output format are implemented and validated end-to-end. Real SUT
+adapters (pgvector, DinoMem, Mem0, Zep, Cognee, Supermemory, LangMem) are present
+and the cross-system results are committed at
+[`results/COMPARISON.md`](./results/COMPARISON.md). See [`DESIGN.md`](./DESIGN.md)
+for the methodology.
+
+**v1 scope.** Bench v1 ships **S1–S3, S5, S6a (policy fidelity), and S7**. **S4
+(CRDT convergence)** and the **CRDT-supersession part of S6** are gated on DinoMem's
+CRDT **V3** (not yet shipped or measured) and currently record **N/A for all real
+systems, DinoMem included** — only the in-process `FakeSUT` reference can drive the
+replica/vector-clock protocol they need.
 
 ## Running
 
-No third-party deps for the core + the reference SUT — stdlib only:
+The harness core + the reference `FakeSUT` are **stdlib-only**, so the canonical
+one-command run needs zero third-party deps (no lock file, no `uv`, no Docker):
 
 ```bash
-python3 -m dinomem_bench --sut fake --scenarios all   # full run
+python3 -m dinomem_bench --sut fake --scenarios all   # canonical full run
 python3 -m dinomem_bench --sut fake --scenarios s1,s4 # a subset
 python3 -m dinomem_bench --list                        # SUTs + scenarios
 python3 tests/test_smoke.py                             # smoke tests (no pytest needed)
 ```
+
+### Cost estimate + budget guard
+
+Before any real (paid) run, the harness prices the selected SUTs x scenarios from
+**operation counts x pinned model prices** (`dinomem_bench/cost.py` +
+`dinomem_bench/models.py`) — no live API call. Inspect it, or cap a run:
+
+```bash
+python3 -m dinomem_bench --sut fake --scenarios all --estimate-cost   # print table, exit
+python3 -m dinomem_bench --sut pgvector --scenarios s7 --max-usd 30   # abort if est > $30
+```
+
+`--estimate-cost` prints a per-SUT/per-scenario + total USD table and exits without
+running. A real run computes the same estimate first and **aborts before any SUT
+work** if the total exceeds `--max-usd` (default `30.0`). In-process/flat-rate SUTs
+(FakeSUT, hosted subscriptions) estimate to ~$0, so a fake run never aborts.
 
 A run writes a self-contained `runs/<run_id>/` directory: `manifest.json`,
 `scenarios/<slug>.jsonl` (one line per metric), `timing.json`, `cost.json`, and

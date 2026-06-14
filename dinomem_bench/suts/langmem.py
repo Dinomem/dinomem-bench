@@ -20,10 +20,12 @@ import uuid
 from datetime import datetime, timezone
 
 from ..adapter import SUTAdapter, Unsupported
+from ..models import OPENAI_EMBED_3_SMALL
 from ..types import Capability, Hit, WriteResult
 
-_EMBED_MODEL = "text-embedding-3-small"
-_EMBED_DIMS = 1536
+# Pinned model string + dims from the central registry (DESIGN §6, no `latest`).
+_EMBED_MODEL = OPENAI_EMBED_3_SMALL.name
+_EMBED_DIMS = OPENAI_EMBED_3_SMALL.dims
 
 
 class LangMemSUT(SUTAdapter):

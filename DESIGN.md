@@ -1,8 +1,23 @@
 # Multi-Agent Memory Benchmark — Design
 
-**Version:** 0.1 (design phase)
-**Last updated:** 2026-05-19
-**Status:** RFC. Implementation has not started. Comments welcome via issues.
+**Version:** 0.1 (harness running)
+**Last updated:** 2026-06-14
+**Status:** RUNNING. The harness is implemented and validated end-to-end against the
+in-process reference `FakeSUT`; real-system adapters (pgvector, DinoMem, Mem0, Zep,
+Cognee, Supermemory, LangMem) are present, and the cross-system results are committed
+at [`results/COMPARISON.md`](./results/COMPARISON.md). Comments welcome via issues.
+
+One-command run (stdlib-only core, no extras needed for the reference SUT):
+
+```bash
+python3 -m dinomem_bench --sut fake --scenarios all
+```
+
+**v1 scope:** ships **S1–S3, S5, S6a (policy fidelity), and S7**. **S4 (CRDT
+convergence)** and the **CRDT-supersession part of S6** are gated on DinoMem's CRDT
+**V3** (not yet shipped or measured): they currently record **N/A for all real
+systems, DinoMem included** — only the in-process `FakeSUT` reference can drive the
+replica/vector-clock protocol they need. See §4 S4 and §9 open question #2.
 
 ---
 
@@ -196,11 +211,25 @@ This is the most important property. Existing memory benchmarks publish numbers 
 
 ### Hard requirements
 
-- **One command run**: `uv run python -m dinomem_bench --sut all --scenarios all`
-- **Lock files**: `uv.lock` for Python deps, `Dockerfile` for OS-level stuff
-- **Pinned models**: every LLM is pinned to a specific version string (e.g., `gpt-4o-mini-2026-04-01`); we do not use `latest`
+- **One command run**: `python3 -m dinomem_bench --sut fake --scenarios all`. This is
+  the canonical command — the harness core + the reference `FakeSUT` are stdlib-only,
+  so it runs with **zero third-party deps and no lock file**. Real SUTs add their own
+  optional extras (`pip install -e ".[pgvector]"`, etc.); select one with `--sut`.
+  (There is no `uv`/`uv run`, `uv.lock`, or `Dockerfile` workflow — earlier drafts
+  promised those; the shipped harness is plain `python3 -m dinomem_bench`.)
+- **Pinned models**: every embedding/LLM model is pinned to a specific version string
+  in [`dinomem_bench/models.py`](./dinomem_bench/models.py) (e.g.,
+  `gpt-4o-mini-2024-07-18`, `text-embedding-3-small`) with a USD price attached; we
+  never use `latest`. Adapters import the pinned string + dims from that registry.
 - **Fixture data committed**: the 1,000 writes for S7 live in `fixtures/s7_writes.jsonl`
-- **Budget cap**: a full run against all 7 SUTs costs less than **$30** in API spend; we enforce this with a pre-flight estimate and abort if exceeded
+  (self-healing — regenerated deterministically if missing).
+- **Budget cap**: a full run costs well under **$30** in API spend; this is enforced
+  by a pre-flight estimator ([`dinomem_bench/cost.py`](./dinomem_bench/cost.py)) that
+  prices the selected SUTs x scenarios from op-counts x the pinned model prices,
+  *before any SUT work*. Inspect it with `--estimate-cost` (prints a per-SUT/per-
+  scenario + total table and exits); a real run aborts if the estimate exceeds
+  `--max-usd` (default `30.0`). In-process/flat-rate SUTs (FakeSUT, hosted
+  subscriptions) estimate to $0, so a fake run never aborts.
 - **No proprietary endpoints required** unless they're free-tier accessible (Mem0 free tier, Zep free tier, Supermemory free tier, etc.)
 
 ### What we don't do
@@ -265,14 +294,23 @@ These should be resolved before coding begins. Track in GitHub issues with `desi
 
 ## 10. Implementation Plan
 
-Once design is signed off, implementation is roughly:
+Status: the harness and all adapters below are **implemented**. What remains is
+broader real-system result coverage (some `results/COMPARISON.md` cells are still
+`N/A` pending API quota / the CRDT V3 surface) — not harness work.
 
-1. **Week 1**: Harness skeleton, SUT adapter interface, run loop, output format. No real SUTs yet — just a fake SUT for testing the harness.
-2. **Week 2**: Adapters for DinoMem + pgvector baseline + LangMem (free, self-host). Scenarios S1, S2, S3, S6.
-3. **Week 3**: Mem0 + Zep + Cognee + Supermemory adapters. All 7 scenarios. First end-to-end run.
-4. **Week 4**: Polish, cost tracking, comparison tooling, blog post draft.
-
-Realistic ship date for v0.1 results: ~4 weeks of focused work. If the two-founder team picks "research" as one of their 2-of-4 focus areas (PDF §15), this is feasible.
+1. **Harness skeleton, SUT adapter interface, run loop, output format — done.** The
+   `SUTAdapter` contract, the run loop (fresh SUT per scenario, one re-run on
+   exception, self-contained `runs/<id>/` output), and the `FakeSUT` reference are
+   implemented and validated end-to-end by `tests/test_smoke.py`.
+2. **Adapters for DinoMem + pgvector baseline + LangMem — done.** Scenarios S1, S2,
+   S3, S5, S6, S7 are implemented (S4 present but `N/A` across the board — see §4).
+3. **Mem0 + Zep + Cognee + Supermemory adapters — done.** All seven scenarios are
+   implemented; the cross-system matrix is committed at `results/COMPARISON.md`.
+4. **Cost tracking + comparison tooling — done.** Pre-flight cost estimation
+   (`--estimate-cost` / `--max-usd`, `dinomem_bench/cost.py` + the pinned
+   `dinomem_bench/models.py` registry) and the `compare.py` matrix generator are
+   implemented. Remaining: fill the `N/A` real-system cells as quota allows, and the
+   blog/paper draft.
 
 ---
 

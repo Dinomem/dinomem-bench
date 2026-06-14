@@ -19,17 +19,18 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import datetime
 
 from ..adapter import SUTAdapter, Unsupported
+from ..models import OPENAI_EMBED_3_SMALL
 from ..types import Capability, Hit, WriteResult
 
 _DEFAULT_DSN = "postgresql://postgres:bench@localhost:5433/bench"
 _TABLE = "amb_memories"
-# Pinned per DESIGN §6 (no `latest`). 3-small is 1536-dim; price $0.02 / 1M tokens.
-_EMBED_MODEL = os.environ.get("PGVECTOR_EMBED_MODEL", "text-embedding-3-small")
-_EMBED_DIMS = 1536
-_USD_PER_1M_TOKENS = 0.02
+# Pinned per DESIGN §6 (no `latest`) — model string + price live in models.py.
+# PGVECTOR_EMBED_MODEL can override the string (dims/price then assume 3-small).
+_EMBED_MODEL = os.environ.get("PGVECTOR_EMBED_MODEL", OPENAI_EMBED_3_SMALL.name)
+_EMBED_DIMS = OPENAI_EMBED_3_SMALL.dims
+_USD_PER_1M_TOKENS = OPENAI_EMBED_3_SMALL.usd_per_1k_tokens * 1000
 
 
 def _vec_literal(emb: list[float]) -> str:
