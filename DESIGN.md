@@ -116,7 +116,7 @@ Two agents on simulated different replicas write conflicting facts at the same w
 - **S4.deterministic**: is the final state the same across 10 randomised sync orders? (Y/N)
 - **S4.lossless**: are both writes retrievable in history? (Y/N)
 
-This scenario is the headline differentiator. DinoMem is the only system we know of with formal CRDT semantics on memory. Most competitors will fail S4.deterministic.
+This scenario was intended as a headline differentiator, but in practice it is **unverifiable as a black box for every shipping system, DinoMem included** — none (DinoMem included) exposes a replica/vector-clock API a black-box convergence test can drive, so S4 scores `N/A` across the board and only the in-process reference implementation passes. CRDT-based convergence is on DinoMem's V3 roadmap (its vector clocks tick internally today, but there is no measured/guaranteed convergence property yet — see the adapter note). We make no formal/provable convergence claim here.
 
 ### S5 — Cross-workflow isolation
 
@@ -249,7 +249,7 @@ These should be resolved before coding begins. Track in GitHub issues with `desi
 
 1. **Embedding model parity** — should every SUT use OpenAI's `text-embedding-3-small`, or each SUT's default? Different choices yield different absolute numbers but the same *relative* ordering. Default proposal: **each SUT's default**, since that's what a real user gets out of the box. Document the choice in every report.
 
-2. **Concurrent-write simulation** — can we actually exercise CRDT behaviour against hosted services? Most don't expose vector clocks. Default proposal: **only run S4 against systems with vector-clock APIs** (DinoMem, possibly Zep via Graphiti). Score others as `N/A`.
+2. **Concurrent-write simulation** — can we actually exercise CRDT behaviour against hosted services? In practice *none* expose a black-box-drivable replica/vector-clock API — DinoMem ticks vector clocks internally but does not yet expose a replica/sync surface a convergence test can drive (CRDT convergence is a V3 roadmap item, not a shipped/measured guarantee). Default proposal: **only run S4 against systems that expose a drivable vector-clock/replica API**; score everything else (currently all of them, DinoMem included) as `N/A`. A v0.2 test hook is the prerequisite for ever scoring this.
 
 3. **LLM judge bias** — using Claude as the judge of a benchmark in which Claude is a possible production user. Default proposal: **also run a Gemini 2.5 Flash judge in parallel** for triangulation; flag any case where they disagree.
 

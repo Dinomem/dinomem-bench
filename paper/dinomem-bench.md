@@ -296,9 +296,13 @@ the coordination axes above.
 ## 10. Conflict of Interest
 
 The authors develop **DinoMem**, one of the seven systems under test, and DinoMem
-attains the only passes on S1 and S6. We mitigate as follows: (i) this statement is
-prominent; (ii) we report DinoMem's **gap** (S2) and the dimension on which it is
-**untestable like everyone else** (S4) in the same table; (iii) we document an
+attains the only passes on S1 and S6 (its *shipped* conflict policies —
+`planner_wins` / `timestamp_wins` / `human_in_loop`). We make no convergence claim
+for it: DinoMem's CRDT-based convergence is a V3 roadmap item (its vector clocks tick
+internally, but the property is not yet exposed, benchmarked, or guaranteed), so on S4
+DinoMem is **untestable like everyone else**, not a passing system. We mitigate as
+follows: (i) this statement is prominent; (ii) we report DinoMem's **gap** (S2) and
+the dimension on which it is **untestable like everyone else** (S4) in the same table; (iii) we document an
 operational failure in our own system (§7); (iv) every scenario is a public,
 deterministic script and every result links to a raw trial log, so any reader can
 reproduce or refute; (v) adapters are open to PRs from competing vendors, who may

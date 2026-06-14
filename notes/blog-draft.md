@@ -162,8 +162,10 @@ one-dimensional:
 - Need **"what was true at T?"**? Only **Zep** did it.
 - Need **fast, cheap, faithful retrieval at modest scale**? A **raw pgvector
   table** (or LangMem) is hard to beat — and a lot of "memory systems" don't beat it.
-- Need **CRDT convergence guarantees**? **No shipping product** lets you verify them
-  today.
+- Need **CRDT convergence**? **No shipping product** — DinoMem included — lets you
+  verify it today; DinoMem's CRDT-based convergence is a V3 roadmap item (not yet
+  benchmarked), so treat any "convergence guarantee" claim, ours or anyone else's, as
+  unverified for now.
 
 If you take one thing from this: stop asking for the best memory system, and start
 asking which coordination property your multi-agent app actually needs — then check

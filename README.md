@@ -70,6 +70,13 @@ provenance. **The current matrix is committed at [`results/COMPARISON.md`](./res
 
 ### Headline (all 7 DESIGN systems)
 
+> DinoMem is the Postgres-native memory layer for multi-agent systems — it runs
+> entirely inside your Supabase/Postgres (no separate Redis, Neo4j, or Pinecone) and
+> gives concurrent agents typed, auditable conflict resolution.
+
+(DinoMem is one system under test here, not the subject of this repo — see the COI
+disclosure in DESIGN §9.)
+
 Different systems fill different coordination gaps — "best memory system" is a
 category error (DESIGN §3):
 
@@ -92,6 +99,20 @@ category error (DESIGN §3):
 The full per-metric matrix is committed at
 [`results/COMPARISON.md`](./results/COMPARISON.md); each system's writeup is in
 [`notes/`](./notes).
+
+### DinoMem scope (non-goals)
+
+For context on the system-under-test the maintainers build:
+
+Non-goals (state explicitly; we are NOT building toward these):
+- NOT Mem0-scale at 100M+ vectors per tenant.
+- NOT a many-storage-backend abstraction (Postgres-only is the point).
+- NOT best-in-class entity/relation extraction quality.
+- NOT a general document-RAG ingestion pipeline.
+- NOT procedural skill learning.
+
+The defensible quadrant is single-substrate (Postgres-only) x formal-CRDT conflict
+handling — and the CRDT half is a V3 roadmap item, not a shipped/measured guarantee yet.
 
 ### Adding a system under test
 

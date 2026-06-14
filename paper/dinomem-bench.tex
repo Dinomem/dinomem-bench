@@ -267,7 +267,12 @@ cannot pin; we pin client/package versions and re-publish on a cadence.
 
 \section{Conflict of Interest}\label{sec:coi}
 The authors develop \textbf{DinoMem}, one of the seven systems under test, and
-DinoMem attains the only passes on S1 and S6. We mitigate as follows: (i)~this
+DinoMem attains the only passes on S1 and S6 (its \emph{shipped} conflict policies:
+\texttt{planner\_wins} / \texttt{timestamp\_wins} / \texttt{human\_in\_loop}). We make
+no convergence claim for it: DinoMem's CRDT-based convergence is a V3 roadmap item
+(its vector clocks tick internally, but the property is not yet exposed, benchmarked,
+or guaranteed), so on S4 DinoMem is \emph{untestable like everyone else}, not a
+passing system. We mitigate as follows: (i)~this
 statement is prominent; (ii)~we report DinoMem's \emph{gap} (S2) and the dimension on
 which it is \emph{untestable like everyone else} (S4) in the same figure; (iii)~we
 document an operational failure in our own system (\S\ref{sec:operational}); (iv)~every
