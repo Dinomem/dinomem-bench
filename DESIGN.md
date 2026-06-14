@@ -13,11 +13,21 @@ One-command run (stdlib-only core, no extras needed for the reference SUT):
 python3 -m dinomem_bench --sut fake --scenarios all
 ```
 
-**v1 scope:** ships **S1–S3, S5, S6a (policy fidelity), and S7**. **S4 (CRDT
-convergence)** and the **CRDT-supersession part of S6** are gated on DinoMem's CRDT
-**V3** (not yet shipped or measured): they currently record **N/A for all real
-systems, DinoMem included** — only the in-process `FakeSUT` reference can drive the
-replica/vector-clock protocol they need. See §4 S4 and §9 open question #2.
+**v1 scope:** ships **S1–S7**, including **S4 (CRDT convergence)**. DinoMem's CRDT
+**V3** now ships a real convergence engine + a black-box replica/sync API
+(`POST /v1/crdt/replicas/{rid}/write`, `.../sync`, `GET .../state`), so S4 is no
+longer gated/roadmap for DinoMem: the harness drives it end-to-end through the
+public API, and the convergence is independently proven by the core's CvRDT
+property suite
+([`agentmem/supabase/functions/api/lib/crdt-merge.test.ts`](../agentmem/supabase/functions/api/lib/crdt-merge.test.ts):
+order-independence, the CvRDT laws, no-lost-writes vs an independent brute force,
+partial-sync convergence, and an LWW ablation). **DinoMem is the only system under
+test with a drivable replica/sync API**; the other real systems remain structurally
+**N/A** on S4 (they expose no replica/vector-clock surface a convergence test can
+drive), and the in-process `FakeSUT` reference still passes it too. See §4 S4 and §9
+open question #2. (The S4-DinoMem matrix cell flips to ✅ on the next live bench run
+against a deployed instance — the committed `results/COMPARISON.md` is regenerated
+from `runs/` only.)
 
 ---
 
@@ -124,14 +134,30 @@ Agent A writes a `private` memory. Agent B (different `agent_id`, same `workflow
 
 ### S4 — Concurrent writes (CRDT)
 
-Two agents on simulated different replicas write conflicting facts at the same wall-clock time, with different vector clocks. Replicas sync in **reversed order** on each replica.
+Multiple replicas take **concurrent, conflicting** writes (the same key with
+different values, disjoint vector clocks), plus a distinct uncontended key per
+replica. Replicas then gossip in **reversed / randomised order**.
 
 **Metrics:**
-- **S4.converge**: do both replicas reach the same final state? (Y/N — this is the CRDT convergence property)
-- **S4.deterministic**: is the final state the same across 10 randomised sync orders? (Y/N)
-- **S4.lossless**: are both writes retrievable in history? (Y/N)
+- **S4.converge**: do all replicas reach the same final state regardless of sync order? (Y/N — the CRDT convergence property)
+- **S4.deterministic**: is the final state the same across 10 randomised sync orders, with a single reproducible winner for the contended key? (Y/N)
+- **S4.lossless**: is no write dropped — the contended winner *and* each replica's distinct uncontended key all survive the merge (observable through the plain state API)? (Y/N)
+- **S4.converge_ms** (`info`): wall-clock for one out-of-order sync round-trip over the concurrent ops — operational colour, not a correctness gate.
 
-This scenario was intended as a headline differentiator, but in practice it is **unverifiable as a black box for every shipping system, DinoMem included** — none (DinoMem included) exposes a replica/vector-clock API a black-box convergence test can drive, so S4 scores `N/A` across the board and only the in-process reference implementation passes. CRDT-based convergence is on DinoMem's V3 roadmap (its vector clocks tick internally today, but there is no measured/guaranteed convergence property yet — see the adapter note). We make no formal/provable convergence claim here.
+This is the headline differentiator, and as of CRDT **V3** it is a **measured**
+guarantee for DinoMem, not a roadmap item. DinoMem ships a real op-based
+LWW-Register CvRDT engine ([`agentmem/supabase/functions/api/lib/crdt-merge.ts`](../agentmem/supabase/functions/api/lib/crdt-merge.ts))
+behind a black-box replica/sync API (`routes/crdt.ts`), and the engine's
+convergence is property-tested in
+[`agentmem/supabase/functions/api/lib/crdt-merge.test.ts`](../agentmem/supabase/functions/api/lib/crdt-merge.test.ts)
+(order-independence, the CvRDT laws, no-lost-writes vs an independent brute-force
+reference, partial-sync convergence, and an LWW ablation showing naive ts-only LWW
+is order-sensitive / loses causal writes where the engine is not). The harness
+drives that API end-to-end, so S4 passes for DinoMem. **It is the only system under
+test that exposes a drivable replica/vector-clock API** — every other real system
+remains `N/A` on S4 (no replica/sync surface to drive); the in-process `FakeSUT`
+reference also passes. The property suite is an *empirical* convergence check, not a
+machine-checked formal proof — we say "measured convergence", not "proven invariant".
 
 ### S5 — Cross-workflow isolation
 
@@ -278,7 +304,7 @@ These should be resolved before coding begins. Track in GitHub issues with `desi
 
 1. **Embedding model parity** — should every SUT use OpenAI's `text-embedding-3-small`, or each SUT's default? Different choices yield different absolute numbers but the same *relative* ordering. Default proposal: **each SUT's default**, since that's what a real user gets out of the box. Document the choice in every report.
 
-2. **Concurrent-write simulation** — can we actually exercise CRDT behaviour against hosted services? In practice *none* expose a black-box-drivable replica/vector-clock API — DinoMem ticks vector clocks internally but does not yet expose a replica/sync surface a convergence test can drive (CRDT convergence is a V3 roadmap item, not a shipped/measured guarantee). Default proposal: **only run S4 against systems that expose a drivable vector-clock/replica API**; score everything else (currently all of them, DinoMem included) as `N/A`. A v0.2 test hook is the prerequisite for ever scoring this.
+2. **Concurrent-write simulation** — can we actually exercise CRDT behaviour against hosted services? **Resolved.** We run S4 only against systems that expose a drivable replica/vector-clock API, scoring everything else `N/A`. As of CRDT **V3**, DinoMem exposes exactly such an API (`POST /v1/crdt/replicas/{rid}/write`, `.../sync`, `GET .../state`, backed by a property-tested CvRDT engine), so S4 is drivable end-to-end against it and is no longer `N/A` for DinoMem. **It remains the only SUT with that surface** — every other real system is still `N/A` on S4. The convergence guarantee is the core's empirical CvRDT property suite (`crdt-merge.test.ts`), not a marketing claim.
 
 3. **LLM judge bias** — using Claude as the judge of a benchmark in which Claude is a possible production user. Default proposal: **also run a Gemini 2.5 Flash judge in parallel** for triangulation; flag any case where they disagree.
 
@@ -296,14 +322,17 @@ These should be resolved before coding begins. Track in GitHub issues with `desi
 
 Status: the harness and all adapters below are **implemented**. What remains is
 broader real-system result coverage (some `results/COMPARISON.md` cells are still
-`N/A` pending API quota / the CRDT V3 surface) — not harness work.
+`N/A` pending API quota, and the S4-DinoMem cell flips to ✅ on the next live run
+against a deployed CRDT-V3 instance) — not harness work.
 
 1. **Harness skeleton, SUT adapter interface, run loop, output format — done.** The
    `SUTAdapter` contract, the run loop (fresh SUT per scenario, one re-run on
    exception, self-contained `runs/<id>/` output), and the `FakeSUT` reference are
    implemented and validated end-to-end by `tests/test_smoke.py`.
-2. **Adapters for DinoMem + pgvector baseline + LangMem — done.** Scenarios S1, S2,
-   S3, S5, S6, S7 are implemented (S4 present but `N/A` across the board — see §4).
+2. **Adapters for DinoMem + pgvector baseline + LangMem — done.** All seven scenarios
+   (S1–S7) are implemented. S4 (CRDT) is drivable end-to-end against DinoMem via its
+   CRDT-V3 replica/sync API (the only SUT with that surface); every other real system
+   is `N/A` on S4 — see §4.
 3. **Mem0 + Zep + Cognee + Supermemory adapters — done.** All seven scenarios are
    implemented; the cross-system matrix is committed at `results/COMPARISON.md`.
 4. **Cost tracking + comparison tooling — done.** Pre-flight cost estimation
@@ -340,4 +369,10 @@ Not a success criterion: DinoMem winning every metric. We expect to lose some (e
 
 ## 13. Changelog
 
+- **2026-06-14** — S4 (CRDT convergence) is now live for DinoMem. CRDT V3 ships a
+  real op-based LWW-Register CvRDT engine + a black-box replica/sync API; the
+  DinoMem adapter advertises `VECTOR_CLOCK` and drives it, and S4 was hardened to
+  assert convergence + a deterministic winner + API-observable losslessness. DinoMem
+  is the only SUT with a drivable replica API; the others remain `N/A`. Closes open
+  question #2.
 - **2026-05-19** — v0.1 design. Initial draft.

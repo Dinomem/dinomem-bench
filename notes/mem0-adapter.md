@@ -61,7 +61,9 @@ passes this; Mem0 fails it.
 **Reading it:** On multi-agent coordination, **only DinoMem fills S1** (the one
 metric that needs a real memory system); Mem0 ties the floor and *loses* one
 metric to it; S3/S5 don't separate anyone. DinoMem's temporal is incomplete (S2
-gap) and its CRDT is untestable black-box (S4). Latency: pgvector fastest
+gap); its CRDT, by contrast, is now testable black-box — CRDT V3 ships a replica/
+sync API (S4 is drivable end-to-end against DinoMem, the only SUT that can; this
+note's run predates it). Latency: pgvector fastest
 (embedding-bound ~307 ms), Mem0 ~3–4× slower on writes (~1.1 s, hosted + its own
 processing). DinoMem's S2/S6/S7 await a Gemini-quota reset.
 

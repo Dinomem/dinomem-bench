@@ -17,8 +17,11 @@ This repo is the methodology + harness + datasets, not a product. Read [`DESIGN.
 >   recorded for each result so anyone can re-run and reproduce it.
 > - **We report *every* metric — including the ones DinoMem fails or is N/A on.** The
 >   matrix has an explicit *"Where DinoMem loses / is N/A"* section; see
->   [`results/COMPARISON.md`](./results/COMPARISON.md). (DinoMem **fails** S2 temporal
->   and is **N/A on S4 CRDT like everyone else**.)
+>   [`results/COMPARISON.md`](./results/COMPARISON.md). (DinoMem **fails** S2 temporal.
+>   On **S4 CRDT** it is now the *only* SUT that can run the scenario — its CRDT-V3
+>   replica/sync API is drivable end-to-end — while every other real system stays
+>   N/A; the committed matrix cell is regenerated from `runs/`, so it flips to ✅ on
+>   the next live run, not by hand.)
 > - **Black-box, public APIs only.** No system is tested through privileged internals.
 > - **Competitors are invited to PR their own adapters / config overrides.** The
 >   maintainers keep merge rights on *harness code only* — see
@@ -50,11 +53,15 @@ and the cross-system results are committed at
 [`results/COMPARISON.md`](./results/COMPARISON.md). See [`DESIGN.md`](./DESIGN.md)
 for the methodology.
 
-**v1 scope.** Bench v1 ships **S1–S3, S5, S6a (policy fidelity), and S7**. **S4
-(CRDT convergence)** and the **CRDT-supersession part of S6** are gated on DinoMem's
-CRDT **V3** (not yet shipped or measured) and currently record **N/A for all real
-systems, DinoMem included** — only the in-process `FakeSUT` reference can drive the
-replica/vector-clock protocol they need.
+**v1 scope.** Bench v1 ships **S1–S7**, including **S4 (CRDT convergence)**.
+DinoMem's CRDT **V3** now ships a real convergence engine + a black-box replica/sync
+API (`POST /v1/crdt/replicas/{rid}/write`, `.../sync`, `GET .../state`), so the
+harness drives S4 against DinoMem end-to-end and its convergence is independently
+proven by the core's CvRDT property suite
+([`agentmem/supabase/functions/api/lib/crdt-merge.test.ts`](../agentmem/supabase/functions/api/lib/crdt-merge.test.ts)).
+**DinoMem is the only system under test with a drivable replica/sync API** — the
+other real systems remain structurally **N/A** on S4, and the `FakeSUT` reference
+also passes it.
 
 ## Running
 
@@ -137,8 +144,14 @@ category error (DESIGN §3):
   + DinoMem). mem0 / supermemory **lose `S3.team_visible`** (content dedup/aggregation
   ignores scope changes). zep / cognee are N/A (graph-centric, no per-agent scope;
   cognee's zero-setup mode doesn't isolate at all — 100% leak — see its note).
-- **S4 (CRDT): N/A for every system** — no hosted/self-host SUT exposes a
-  replica/sync API to drive the convergence test (only the FakeSUT reference can).
+- **S4 (CRDT): only DinoMem.** CRDT V3 ships a real op-based LWW-Register CvRDT
+  engine behind a black-box replica/sync API, so the convergence test (concurrent
+  conflicting writes → out-of-order gossip → converge to one deterministic,
+  lossless state) runs end-to-end against DinoMem; the engine's convergence is
+  property-tested in the core
+  ([`crdt-merge.test.ts`](../agentmem/supabase/functions/api/lib/crdt-merge.test.ts)).
+  No other hosted/self-host SUT exposes a drivable replica/sync API, so they stay
+  N/A (the `FakeSUT` reference also passes).
 - **S7 latency:** langmem / zep / pgvector ~300 ms · mem0 ~1.1 s · supermemory
   ~2.2 s · **cognee ~21 s** (add+cognify per write). DinoMem S5/S6/S7 await a
   Gemini-quota reset; its S6 also surfaced a backend 5xx under rapid policy writes.
@@ -158,8 +171,11 @@ Non-goals (state explicitly; we are NOT building toward these):
 - NOT a general document-RAG ingestion pipeline.
 - NOT procedural skill learning.
 
-The defensible quadrant is single-substrate (Postgres-only) x formal-CRDT conflict
-handling — and the CRDT half is a V3 roadmap item, not a shipped/measured guarantee yet.
+The defensible quadrant is single-substrate (Postgres-only) x CRDT conflict
+handling — and as of CRDT **V3** the CRDT half is **shipped and measured** (a real
+op-based LWW-Register CvRDT engine with an empirical convergence property suite in
+the core, driven black-box by S4), not a roadmap item. We still describe it as
+*measured/empirical* convergence, not a machine-checked formal proof.
 
 ### Adding a system under test
 

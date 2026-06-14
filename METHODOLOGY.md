@@ -104,16 +104,28 @@ different agent) searches.
 
 ### S4 — Concurrent writes / CRDT (`s4_crdt.py`)
 
-Requires `VECTOR_CLOCK`. **`na` for every shipping system, DinoMem included** —
-none exposes a black-box replica/vector-clock API the test can drive; only the
-in-process `FakeSUT` reference can. (DESIGN open question #2; CRDT is a DinoMem
-V3 roadmap item, not a measured guarantee.)
+Requires `VECTOR_CLOCK`. **Drivable end-to-end against DinoMem** as of CRDT V3,
+which ships a real op-based LWW-Register CvRDT engine + a black-box replica/sync
+API (`POST /v1/crdt/replicas/{rid}/write`, `.../sync`, `GET .../state`). The
+adapter maps `replica_write`/`replica_sync`/`replica_state` straight onto those
+endpoints. **DinoMem is the only system under test with that surface**; every other
+real system still raises `Unsupported` → `na`, and the in-process `FakeSUT`
+reference also passes. The convergence guarantee is the core's CvRDT property suite
+(`agentmem/supabase/functions/api/lib/crdt-merge.test.ts`: order-independence, the
+CvRDT laws, no-lost-writes vs an independent brute force, partial-sync convergence,
+and an LWW ablation), so a `pass` here is backed by an engine that is *empirically*
+order-independent — not a machine-checked proof (DESIGN open question #2, resolved).
+
+Setup: each of two replicas takes a **concurrent, conflicting** write on the same
+key (`Owner` = Alice vs Bob, disjoint vclocks) plus one **distinct uncontended**
+write (`Budget`, `Region`); replicas then gossip in reversed / randomised order.
 
 | Metric | Status if… | Decided by |
 |---|---|---|
-| `S4.converge` | `pass` if both replicas reach the **same state** after syncing in reversed order; `na` if no replica API. | `replica_state("R1") == replica_state("R2")`. |
-| `S4.deterministic` | `pass` if the final state is identical across 10 seeded randomised sync orders. | `len({final states}) == 1`. |
-| `S4.lossless` | `pass` if `≥ 2` ops remain retrievable in history. | `len(replica_history()) >= 2`. |
+| `S4.converge` | `pass` if both replicas reach the **same resolved state** regardless of sync order; `na` if no replica API. | `sorted(replica_state("R1")) == sorted(replica_state("R2"))`. |
+| `S4.deterministic` | `pass` if the final state is identical across 10 seeded randomised sync orders (one reproducible winner for the contended key). | `len({final states}) == 1`. |
+| `S4.lossless` | `pass` if **no write is dropped** — the contended key has exactly one surviving winner AND both distinct uncontended keys survive the merge (observable through the plain `state` API; an optional `replica_history` hook, when present, additionally confirms `≥ 4` ops retained). | `has(budget) and has(region) and one owner-winner [and len(replica_history()) >= 4]`. |
+| `S4.converge_ms` (`info`) | always `info` (no pass/fail). | Wall-clock for one out-of-order sync round-trip over the concurrent ops. |
 
 ### S5 — Cross-workflow isolation (`s5_isolation.py`)
 

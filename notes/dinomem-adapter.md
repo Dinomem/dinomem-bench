@@ -15,7 +15,7 @@ restored + `DINOMEM_API_KEY` to run.
 | CONFLICTS | `POST /v1/memory/conflicts` → `detectConflicts` (LLM, severity high/medium/low) |
 | POLICIES | `PUT /v1/policies` — `ignore` / `planner_wins` / `timestamp_wins` / `human_in_loop` |
 | TEMPORAL | `search` `atTime` |
-| ~~VECTOR_CLOCK~~ | **NOT exposed** — clocks tick internally + appear on reads, but there's no replica write/sync API |
+| VECTOR_CLOCK | **Exposed as of CRDT V3** — `POST /v1/crdt/replicas/{rid}/write` `{key,value,agentId}` → op; `POST .../sync` `{from}` → `{synced}`; `GET .../state` → `[{key,value,opId,agentId}]`. Backed by a property-tested op-based LWW-Register CvRDT engine (`agentmem/.../lib/crdt-merge.ts`, tested in `crdt-merge.test.ts`). The adapter maps `replica_write`/`replica_sync`/`replica_state` straight onto these. |
 
 **Key behavioural finding — policies enforce at WRITE time** (`lib/resolution.ts`):
 - `planner_wins` → **blocks** an `executor` write that high-conflicts (planner memory stays)
@@ -35,10 +35,18 @@ outcome is implementation-specific; the unambiguous signal is surfacing).
   instead of raising; the adapter records it and `pending_events()` surfaces the
   `human_in_loop` ones (the client-observable HITL signal — webhook delivery
   itself isn't observable client-side).
-- **S4 = N/A:** no replica/sync API. Even DinoMem — the supposed S4 winner — can't
-  be driven through the replica protocol via its public API. *Actionable for
-  DinoMem: expose a replica/vector-clock test hook so S4 can actually score it;
-  otherwise the CRDT claim is untestable by black-box benchmarks.*
+- **S4 = drivable (CRDT V3).** DinoMem now ships the replica/sync API the
+  convergence test needs, so S4 runs end-to-end against it — concurrent conflicting
+  writes on the same key (+ distinct uncontended keys per replica) → out-of-order
+  gossip → assert all replicas converge to one deterministic, lossless state. The
+  adapter namespaces the replica id (`<ns>.<replica>`) and the register key
+  (`<ns>:<wf>:<key>`) per run for isolation on the shared org. **DinoMem is the only
+  SUT with this surface**; the others stay N/A. The convergence guarantee itself is
+  the core's CvRDT property suite (`crdt-merge.test.ts`), not a black-box-derived
+  claim. (Historical: earlier the adapter advertised NOT VECTOR_CLOCK and flagged
+  "expose a replica/vector-clock test hook" as actionable — CRDT V3 did exactly
+  that.) The committed `results/COMPARISON.md` S4-DinoMem cell flips to ✅ only after
+  a live run against a deployed CRDT-V3 instance is recorded in `runs/`.
 - **S7 cost = 0 (caveat):** extraction (Gemini) + embeddings are server-side and
   not billed back to the client per-op, so `$/1k` isn't client-observable. Latency
   IS measured (real hosted round-trips).
@@ -67,7 +75,7 @@ these — especially (1).
 | S2 | T1.bitemporal | ℹ️ Y (atTime accepted) | pgvector ℹ️ N |
 | S2 | T1.t0 / t1 | ❌ N / ❌ N — see finding | pgvector N/A |
 | S3 | isolated / team_visible / cross_workflow | ✅ Y ×3 | both ✅ — not differentiating |
-| S4 | converge / deterministic / lossless | — N/A ×3 (no replica API) | both N/A |
+| S4 | converge / deterministic / lossless | — N/A ×3 *(this 2026-06-12 run predates CRDT V3; the replica API did not yet exist)* | both N/A |
 | S6 | P.*.correct | ⛔ blocked (Gemini quota) | pgvector N/A |
 | S7 | latency / cost | not run (quota + 1000-write cost) | pgvector ran |
 
@@ -84,8 +92,13 @@ separate them; S4 is N/A for both (no replica API).
    timestamps (the `/write` response returns only `writeId`, no `created_at`), so
    the T0/T1 points are approximate — a clean S2 needs server timestamps + a
    `timestamp_wins` variant. Recorded as a real gap pending that follow-up.
-2. **S4 untestable black-box.** No replica/sync API → N/A even for DinoMem.
-   *Actionable: expose a replica/vector-clock test hook.*
+2. **S4 untestable black-box (at the time).** No replica/sync API → N/A even for
+   DinoMem on this run. *Actionable: expose a replica/vector-clock test hook.* —
+   **RESOLVED in CRDT V3 (2026-06-14):** the core now ships
+   `POST/GET /v1/crdt/replicas/{rid}/{write,sync,state}` over a property-tested
+   CvRDT engine, the adapter advertises `VECTOR_CLOCK` and drives it, and S4 runs
+   end-to-end against DinoMem (the only SUT that can). The matrix cell flips to ✅
+   on the next live run recorded in `runs/`.
 3. **Operational fragility (the big one).** Conflict detection + extraction call
    **Gemini 2.5 Flash server-side**, and under quota they return **5xx, not graceful
    degradation**: `/conflicts` → `502 "[GoogleGenerativeAI] 429 You exceeded your

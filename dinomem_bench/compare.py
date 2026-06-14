@@ -195,11 +195,16 @@ def _render_home_losses(chosen, suts, home: str = HOME_SUT) -> list[str]:
     lines.append(
         "_Reading this honestly: S2 temporal (`T1.t0`/`T1.t1`) is a real **failure** — "
         "DinoMem accepts `at_time` but returns both the old and new fact, where Zep "
-        "correctly invalidates the stale one. S4 CRDT is **N/A for every system, "
-        "DinoMem included** — no shipping system exposes a black-box replica/vector-"
-        "clock API the convergence test can drive (CRDT is a DinoMem V3 roadmap item, "
-        "not a measured guarantee). Any crash cell is a genuine backend defect, not "
-        "hidden._"
+        "correctly invalidates the stale one. S4 CRDT is the one place DinoMem is "
+        "**uniquely capable**: as of CRDT V3 it ships a real op-based LWW-Register "
+        "CvRDT engine + a black-box replica/sync API, so it is the **only** system "
+        "under test the convergence test can drive end-to-end (every other real "
+        "system is N/A — no replica/sync surface); the engine's convergence is "
+        "property-tested in the core "
+        "(`agentmem/supabase/functions/api/lib/crdt-merge.test.ts`). The S4-DinoMem "
+        "cell in the scorecard reflects the data in `runs/` only — it shows ✅ once a "
+        "live run against a deployed CRDT-V3 instance has been recorded, and is never "
+        "hand-edited. Any crash cell is a genuine backend defect, not hidden._"
     )
     return lines
 

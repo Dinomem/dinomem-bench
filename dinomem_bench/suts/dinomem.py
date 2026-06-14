@@ -10,9 +10,18 @@ Capabilities mapped from the real API:
   - POLICIES   : PUT /v1/policies (ignore | planner_wins | timestamp_wins | human_in_loop),
                  enforced AT WRITE TIME (blocks or supersedes)
   - TEMPORAL   : search atTime
-NOT VECTOR_CLOCK: the service ticks vector clocks internally and returns them on
-reads, but exposes no replica-level write/sync API, so S4's replica protocol
-can't be driven → S4 scores N/A. (Worth exposing a replica/sync test hook upstream.)
+  - VECTOR_CLOCK : CRDT V3 ships a black-box replica/sync API
+                 (POST /v1/crdt/replicas/{rid}/write, POST .../sync, GET .../state).
+                 The op log is durable + org-scoped and a replica's state is the
+                 pure CvRDT merge of the ops it knows; convergence is property-
+                 tested in the core
+                 (agentmem/supabase/functions/api/lib/crdt-merge.test.ts:
+                 order-independence, the CvRDT laws, no-lost-writes vs an
+                 independent brute force, partial-sync convergence, LWW ablation).
+                 So S4 is now drivable end-to-end against DinoMem — no longer N/A.
+                 (Earlier versions of this adapter advertised NOT VECTOR_CLOCK:
+                 vector clocks ticked internally but there was no replica/sync
+                 surface a convergence test could drive. CRDT V3 added it.)
 
 Config via env:
   DINOMEM_API_KEY   (required)
@@ -32,6 +41,7 @@ from datetime import datetime, timezone
 
 from ..adapter import SUTAdapter
 from ..types import Capability, Conflict, Hit, WriteResult
+from .fake import parse_entity  # pure stdlib helper: content -> (key, value)
 
 _DEFAULT_BASE_URL = "https://lwbwcuuzoituanwhekyo.supabase.co/functions/v1/api"
 
@@ -59,7 +69,13 @@ class DinoMemSUT(SUTAdapter):
     name = "dinomem"
     version = "api-v1 (dinomem-py 0.2.1)"
     capabilities = frozenset(
-        {Capability.SCOPES, Capability.CONFLICTS, Capability.POLICIES, Capability.TEMPORAL}
+        {
+            Capability.SCOPES,
+            Capability.CONFLICTS,
+            Capability.POLICIES,
+            Capability.TEMPORAL,
+            Capability.VECTOR_CLOCK,  # CRDT V3 replica/sync API (see module docstring)
+        }
     )
     cost_observable = False  # hosted; extraction + embeddings billed server-side
 
@@ -187,3 +203,79 @@ class DinoMemSUT(SUTAdapter):
             if e.get("policy") == "human_in_loop"
             and (workflow_id is None or e.get("workflow_id") == workflow_id)
         ]
+
+    # --- CRDT / replica extension (S4) — CRDT V3 black-box replica API ---------
+    # The core convergence engine + its CvRDT property suite live in
+    # agentmem/supabase/functions/api/lib/crdt-merge{,.test}.ts; these endpoints
+    # are the thin org-scoped HTTP shell the benchmark drives (routes/crdt.ts).
+    def _rid(self, replica: str) -> str:
+        """Namespace the replica id with this run's token so concurrent runs on
+        the shared hosted org never collide on a replica."""
+        return f"{self._ns}.{replica}"
+
+    def _key(self, key: str, workflow_id: str | None) -> str:
+        """Namespace the register key per workflow for the same isolation reason."""
+        wf = self._wf(workflow_id)
+        return key if wf is None else f"{wf}:{key}"
+
+    def replica_write(self, replica, content, *, agent_id, workflow_id=None, vclock=None) -> WriteResult:
+        # The replica API is keyed (LWW-Register), so split the scenario's
+        # "X is Y" content into (key, value) the same way FakeSUT does. The server
+        # assigns the vector clock itself (increments node=replica_id), so the
+        # scenario's hint `vclock` is intentionally not forwarded — the engine is
+        # the source of truth for causality.
+        key, value = parse_entity(content)
+        body = {"key": self._key(key, workflow_id), "value": value, "agentId": agent_id}
+        r = self._http.post(f"/v1/crdt/replicas/{self._rid(replica)}/write", json=body)
+        if not r.is_success:
+            _raise(r)
+        op = (r.json() or {}).get("op", {})
+        return WriteResult(
+            id=str(op.get("opId", "")),
+            created_at=_parse_ts(op.get("ts")),
+            ok=True,
+        )
+
+    def replica_sync(self, order) -> None:
+        # Each (frm, to) step makes `to` learn every op `frm` knows. Idempotent
+        # server-side, so repeating / reversing the order is safe and converges.
+        for frm, to in order:
+            r = self._http.post(
+                f"/v1/crdt/replicas/{self._rid(to)}/sync",
+                json={"from": self._rid(frm)},
+            )
+            if not r.is_success:
+                _raise(r)
+
+    def replica_state(self, replica, *, workflow_id=None) -> list[Hit]:
+        r = self._http.get(f"/v1/crdt/replicas/{self._rid(replica)}/state")
+        if not r.is_success:
+            _raise(r)
+        rows = (r.json() or {}).get("state", [])
+        prefix = self._wf(workflow_id)
+        out: list[Hit] = []
+        for row in rows:
+            raw_key = str(row.get("key", ""))
+            if prefix is not None:
+                if not raw_key.startswith(f"{prefix}:"):
+                    continue  # belongs to another workflow's namespace
+                key = raw_key[len(prefix) + 1 :]
+            else:
+                key = raw_key
+            value = row.get("value", "")
+            out.append(
+                Hit(
+                    id=str(row.get("opId", "")),
+                    # Reconstruct a stable, comparable content string from the
+                    # converged (key,value). Two replicas that converged to the
+                    # same register produce byte-identical content here, which is
+                    # exactly what S4.converge compares.
+                    content=f"{key.capitalize()} is {value}.",
+                    agent_id=str(row.get("agentId", "")),
+                    scope="team",
+                    created_at=datetime.now(timezone.utc),
+                    score=1.0,
+                )
+            )
+        out.sort(key=lambda h: h.content)
+        return out
