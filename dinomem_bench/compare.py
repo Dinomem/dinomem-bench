@@ -6,7 +6,7 @@ Merge policy: a SUT may have several runs (full + partial re-runs). For each
 fall back to the most recent crash only if every run of that scenario crashed.
 Provenance (which run each cell came from) is printed so the matrix is auditable.
 
-    python -m agentmem_bench.compare [--runs runs] [--out results/COMPARISON.md]
+    python -m dinomem_bench.compare [--runs runs] [--out results/COMPARISON.md]
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from pathlib import Path
 
 MARK = {"pass": "✅", "fail": "❌", "na": "—", "crash": "💥", "info": "ℹ️"}
 # Column order: floor → managed → reference. Unknown SUTs appended alphabetically.
-SUT_ORDER = ["pgvector", "mem0", "zep", "cognee", "supermemory", "langmem", "agentmem", "fake"]
+SUT_ORDER = ["pgvector", "mem0", "zep", "cognee", "supermemory", "langmem", "dinomem", "fake"]
 
 
 @dataclass
@@ -101,7 +101,7 @@ def render(runs: list[dict], chosen, suts, provenance) -> str:
     metrics = _ordered_metrics(chosen)
     # map scenario -> the (sut,scenario) chosen metrics for lookups
     lines: list[str] = []
-    lines.append("# agentmem-bench — cross-system comparison")
+    lines.append("# dinomem-bench — cross-system comparison")
     lines.append("")
     lines.append(f"Generated from {len(runs)} run(s) in `runs/`. Per (SUT, scenario) the most")
     lines.append("recent run with real metrics is used (provenance at the bottom). FakeSUT is")
@@ -140,7 +140,7 @@ def render(runs: list[dict], chosen, suts, provenance) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="agentmem-bench.compare", description=__doc__)
+    p = argparse.ArgumentParser(prog="dinomem-bench.compare", description=__doc__)
     p.add_argument("--runs", default="runs", help="runs directory (default: runs)")
     p.add_argument("--out", default="results/COMPARISON.md", help="output markdown path")
     args = p.parse_args(argv)

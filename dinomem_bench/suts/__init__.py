@@ -20,10 +20,10 @@ def _make_pgvector() -> SUTAdapter:
     return PgvectorSUT()
 
 
-def _make_agentmem() -> SUTAdapter:
-    from .agentmem import AgentMemSUT
+def _make_dinomem() -> SUTAdapter:
+    from .dinomem import DinoMemSUT
 
-    return AgentMemSUT()
+    return DinoMemSUT()
 
 
 def _make_mem0() -> SUTAdapter:
@@ -60,7 +60,7 @@ def _make_cognee() -> SUTAdapter:
 REGISTRY: dict[str, Callable[[], SUTAdapter]] = {
     "fake": _make_fake,
     "pgvector": _make_pgvector,
-    "agentmem": _make_agentmem,
+    "dinomem": _make_dinomem,
     "mem0": _make_mem0,
     "supermemory": _make_supermemory,
     "zep": _make_zep,

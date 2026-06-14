@@ -1,7 +1,7 @@
 # Supermemory adapter — run results (with a search-recall caveat)
 
 **Date:** 2026-06-12
-**Adapter:** `agentmem_bench/suts/supermemory.py` (hosted `supermemory` Python SDK).
+**Adapter:** `dinomem_bench/suts/supermemory.py` (hosted `supermemory` Python SDK).
 **Capabilities:** `{SCOPES}` (container_tag = workflow, metadata.scope, enforced
 client-side) — no conflict/policy/temporal/CRDT API.
 
@@ -66,5 +66,5 @@ Distinct facts established by probing:
 ## Run
 ```bash
 SUPERMEMORY_API_KEY=... AMBENCH_SETTLE_TIMEOUT=120 \
-  python -m agentmem_bench --sut supermemory --scenarios all
+  python -m dinomem_bench --sut supermemory --scenarios all
 ```

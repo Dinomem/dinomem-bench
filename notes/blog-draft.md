@@ -1,23 +1,23 @@
 # We benchmarked 7 memory systems on the things that actually break multi-agent apps
 
-*Draft — agentmem-bench v0.1 results. 2026-06-13.*
+*Draft — dinomem-bench v0.1 results. 2026-06-13.*
 
 **TL;DR.** Every published agent-memory benchmark measures one agent recalling
 facts from one long conversation. But production multi-agent systems don't fail on
 recall — they fail on *coordination*: two agents writing contradictory facts,
 "what was true last Tuesday?", scope leaks across workflows, divergent state under
-concurrent writes. So we built [`agentmem-bench`](https://github.com/rooney011/agentmem-bench):
+concurrent writes. So we built [`dinomem-bench`](https://github.com/DinoMem/dinomem-bench):
 seven scenarios (S1–S7) that stress exactly those, run against seven shipped memory
 systems on the same hardware and LLM. The headline: **different systems fill
-different gaps, and "best memory system" is a category error.** Only AgentMem
+different gaps, and "best memory system" is a category error.** Only DinoMem
 handled contradiction + policy; only Zep handled temporal validity; *no* system
 could be tested on CRDT convergence (none exposes the API); and a raw `pgvector`
 table quietly matches the managed systems on everything they *don't* differentiate
 on.
 
-> **Conflict-of-interest disclosure, up front.** We build AgentMem. We also wrote
-> and ran this benchmark. So treat AgentMem's wins with appropriate skepticism —
-> and note that we're publishing, in the same table, the scenarios where AgentMem
+> **Conflict-of-interest disclosure, up front.** We build DinoMem. We also wrote
+> and ran this benchmark. So treat DinoMem's wins with appropriate skepticism —
+> and note that we're publishing, in the same table, the scenarios where DinoMem
 > has a **gap** (S2), where it's **untestable** (S4), and the **operational
 > fragility** that nearly stopped us from finishing (its conflict detection ran out
 > of a free-tier Gemini quota mid-run). Every scenario is a deterministic script in
@@ -55,7 +55,7 @@ Each is a deterministic setup → operations → assertions script.
 | **S6** Policy fidelity | `ignore` / `timestamp_wins` / `planner_wins` / `human_in_loop` — does retrieval match each? |
 | **S7** Operational | write/search latency percentiles + cost |
 
-Systems under test: **AgentMem, Mem0, Zep, Cognee, Supermemory, LangMem, and a raw
+Systems under test: **DinoMem, Mem0, Zep, Cognee, Supermemory, LangMem, and a raw
 pgvector baseline** — plus an in-process reference implementation (`FakeSUT`) that
 passes everything, to prove the scenarios + assertions are sound. A system that
 can't perform an operation scores **N/A**, not a failure (e.g. no `at_time` API →
@@ -64,7 +64,7 @@ raw vector store, it isn't measuring memory-system value.*
 
 ## The results
 
-| Scenario | pgvector | mem0 | zep | cognee | supermemory | langmem | **AgentMem** |
+| Scenario | pgvector | mem0 | zep | cognee | supermemory | langmem | **DinoMem** |
 |---|---|---|---|---|---|---|---|
 | **S1** conflict detect | N/A | N/A | N/A | N/A | N/A | N/A | **✅** |
 | **S1** conflict resolve | N/A | N/A | N/A | N/A | N/A | N/A | **✅** |
@@ -83,8 +83,8 @@ doesn't enforce isolation at all.</sub>
 
 ## What the table actually says
 
-**S1 — contradiction: only AgentMem.** Two agents write "Deadline is Friday" and
-"Deadline is Monday." Only AgentMem exposes a conflict-detection API *and* resolves
+**S1 — contradiction: only DinoMem.** Two agents write "Deadline is Friday" and
+"Deadline is Monday." Only DinoMem exposes a conflict-detection API *and* resolves
 per policy (it blocked the executor's write under `planner_wins`, with a
 high-severity conflict description). Every other system — including the graph ones
 — has no API to surface a contradiction. **Mem0's much-advertised LLM dedup does
@@ -94,31 +94,31 @@ not resolve it**: we verified the stale and the new value silently coexist.
 was true at each time. Zep extracts facts as graph edges with bitemporal validity
 and **auto-invalidates** the old one (`invalid_at = T1`), so `at_time=T0` returns
 "green" and `at_time=T1` returns "red". It's the only system that gets this right.
-AgentMem *accepts* an `at_time` parameter but returns both facts — a real gap we're
+DinoMem *accepts* an `at_time` parameter but returns both facts — a real gap we're
 not hiding. Everyone else: no temporal API at all.
 
 **S3 / S5 — scope: nobody's differentiator, but it splits the floors.** Scope and
 workflow isolation are `WHERE`-clause-shaped, so the floors handle them — which is
 the point: these scenarios don't separate a memory system from a vector store. The
 interesting split is *within* the floor tier: **verbatim stores (pgvector, langmem,
-AgentMem) pass "team-visible"; dedup/aggregating stores (Mem0, Supermemory) fail
+DinoMem) pass "team-visible"; dedup/aggregating stores (Mem0, Supermemory) fail
 it** — re-writing a fact at a wider scope is silently swallowed by content dedup.
 
 **S4 — CRDT: everybody fails, for the same reason.** This was meant to be the
-headline. It isn't — because **no system, including AgentMem, exposes a replica /
+headline. It isn't — because **no system, including DinoMem, exposes a replica /
 vector-clock API** you can drive to test out-of-order convergence as a black box.
-AgentMem ticks vector clocks internally, but you can't reach them through the public
+DinoMem ticks vector clocks internally, but you can't reach them through the public
 API. So S4 is N/A across the board (only the in-process reference passes). Honest
 takeaway: *the convergence claim every CRDT-flavored memory system makes is
 currently unverifiable from the outside.* That's a gap in the **products**, and a
 to-do for v0.2 of the benchmark.
 
-**S6 — policy fidelity: only AgentMem.** All four policies behaved to spec:
+**S6 — policy fidelity: only DinoMem.** All four policies behaved to spec:
 `ignore` keeps both, `timestamp_wins` supersedes to the latest, `planner_wins`
 blocks the executor, `human_in_loop` blocks and emits an event. No other system
 ships conflict policies.
 
-**S7 — latency spans 70×.** langmem / zep / pgvector cluster at ~300 ms; AgentMem
+**S7 — latency spans 70×.** langmem / zep / pgvector cluster at ~300 ms; DinoMem
 and Mem0 around 1 s; Supermemory ~2.2 s; **Cognee ~21 s per write** (it runs LLM
 graph extraction on every write). For many apps, that spread matters more than any
 correctness checkbox.
@@ -127,7 +127,7 @@ correctness checkbox.
 
 The scenario grid is half the story. The other half is what broke:
 
-- **AgentMem (us): conflict detection is bound to the extraction LLM's quota, and
+- **DinoMem (us): conflict detection is bound to the extraction LLM's quota, and
   it 5xx's instead of degrading.** Our backend's free-tier Gemini key hit its daily
   request cap mid-benchmark; conflict-detection writes returned `500` rather than
   failing gracefully. We also caught a `500` under near-simultaneous policy writes.
@@ -158,7 +158,7 @@ The scenario grid is half the story. The other half is what broke:
 Wrong question. The benchmark's clearest result is that the category is *not*
 one-dimensional:
 
-- Need **contradiction handling or resolution policies**? Only **AgentMem** did it.
+- Need **contradiction handling or resolution policies**? Only **DinoMem** did it.
 - Need **"what was true at T?"**? Only **Zep** did it.
 - Need **fast, cheap, faithful retrieval at modest scale**? A **raw pgvector
   table** (or LangMem) is hard to beat — and a lot of "memory systems" don't beat it.
@@ -172,9 +172,9 @@ whether your candidate even has an *API* for it.
 ## Reproduce it
 
 ```bash
-git clone https://github.com/rooney011/agentmem-bench
-python -m agentmem_bench --sut pgvector --scenarios all   # one SUT
-python -m agentmem_bench.compare                          # the matrix
+git clone https://github.com/DinoMem/dinomem-bench
+python -m dinomem_bench --sut pgvector --scenarios all   # one SUT
+python -m dinomem_bench.compare                          # the matrix
 ```
 
 Every scenario is a deterministic script; every run writes a self-contained
@@ -184,6 +184,6 @@ Every scenario is a deterministic script; every run writes a self-contained
 
 ---
 
-*Built by [devsforfun](https://github.com/rooney011). Methodology RFC + scenario
+*Built by [devsforfun](https://github.com/DinoMem). Methodology RFC + scenario
 definitions in [`DESIGN.md`](../DESIGN.md). v0.2 will add a replica/vector-clock
 test hook (so S4 can finally score someone) and tighter cost instrumentation.*

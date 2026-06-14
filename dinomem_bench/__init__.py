@@ -1,4 +1,4 @@
-"""agentmem-bench — a reproducible benchmark for multi-agent memory systems.
+"""dinomem-bench — a reproducible benchmark for multi-agent memory systems.
 
 See DESIGN.md for the methodology. The package is organised as:
   - types       : shared result dataclasses + capability/scope/policy constants

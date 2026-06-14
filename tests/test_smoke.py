@@ -14,11 +14,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from agentmem_bench.adapter import SUTAdapter
-from agentmem_bench.scenarios import ALL
-from agentmem_bench.scenarios.base import CRASH, FAIL, NA
-from agentmem_bench.suts.fake import FakeSUT, parse_entity
-from agentmem_bench.types import Hit, WriteResult
+from dinomem_bench.adapter import SUTAdapter
+from dinomem_bench.scenarios import ALL
+from dinomem_bench.scenarios.base import CRASH, FAIL, NA
+from dinomem_bench.suts.fake import FakeSUT, parse_entity
+from dinomem_bench.types import Hit, WriteResult
 
 
 def _run(sut: SUTAdapter):

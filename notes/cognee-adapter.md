@@ -1,7 +1,7 @@
 # Cognee adapter — run results (graph-RAG; slowest; no isolation in zero-setup mode)
 
 **Date:** 2026-06-13
-**Adapter:** `agentmem_bench/suts/cognee_sut.py` — self-host Cognee 1.1.2
+**Adapter:** `dinomem_bench/suts/cognee_sut.py` — self-host Cognee 1.1.2
 (SQLite+LanceDB+Kuzu), async `add → cognify → search`, `SearchType.CHUNKS` for
 verbatim retrieval, `ENABLE_BACKEND_ACCESS_CONTROL=false` (zero-setup, no
 user/tenant auth). **Capabilities: `{}` (none)** — see the isolation finding.
@@ -66,5 +66,5 @@ the zero-setup mode). What it does provide — entity/graph extraction + RAG ans
 ## Run
 ```bash
 OPENAI_API_KEY=... AMBENCH_S5_WRITES=3 AMBENCH_S7_WRITES=5 AMBENCH_S7_SEARCHES=3 \
-  python -m agentmem_bench --sut cognee --scenarios all   # extra: cognee
+  python -m dinomem_bench --sut cognee --scenarios all   # extra: cognee
 ```

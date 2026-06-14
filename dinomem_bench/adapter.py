@@ -28,7 +28,7 @@ class SUTAdapter(abc.ABC):
     # Which Capability.* features this adapter supports. Scenarios consult this.
     capabilities: frozenset[str] = frozenset()
     # Whether per-op $ is measurable client-side. False for hosted services whose
-    # cost is a server-side subscription (Mem0, AgentMem) — S7 then reports the
+    # cost is a server-side subscription (Mem0, DinoMem) — S7 then reports the
     # $ metrics as "not client-observable" rather than a misleading $0.
     cost_observable: bool = True
 

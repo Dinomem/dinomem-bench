@@ -1,7 +1,7 @@
 # Build the paper and produce an arXiv-ready submission tarball.
 #
-#   make            -> agentmem-bench.pdf  (pdflatex + bibtex + pdflatex x2)
-#   make arxiv      -> agentmem-bench-arxiv.tar.gz  (self-contained, incl. .bbl)
+#   make            -> dinomem-bench.pdf  (pdflatex + bibtex + pdflatex x2)
+#   make arxiv      -> dinomem-bench-arxiv.tar.gz  (self-contained, incl. .bbl)
 #   make figures    -> regenerate figures from committed runs (needs matplotlib)
 #   make clean      -> remove LaTeX aux files
 #   make veryclean  -> also remove the PDF + tarball
@@ -10,7 +10,7 @@
 # packages used (natbib, graphicx, booktabs, pifont, microtype, lmodern,
 # hyperref) ship with a standard TeX Live and with arXiv's AutoTeX.
 
-PAPER   := agentmem-bench
+PAPER   := dinomem-bench
 LATEX   := pdflatex -interaction=nonstopmode -halt-on-error
 BIBTEX  := bibtex
 FIGS    := figures/capability_heatmap.pdf figures/latency.pdf

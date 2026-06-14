@@ -18,7 +18,7 @@ Every published agent-memory benchmark today (LoCoMo, LongMemEval, ConvoMem, Mem
 
 The Cemri et al. paper (arXiv:2503.13657) analysed 1,600+ multi-agent execution traces and found **36.9% of failures** were caused by agents ignoring, duplicating, or contradicting each other's work. Memory systems are the substrate where this either gets solved or compounded. No public benchmark currently scores systems on this dimension.
 
-`agentmem-bench` is that benchmark.
+`dinomem-bench` is that benchmark.
 
 ### What this is not
 
@@ -54,7 +54,7 @@ The Cemri et al. paper (arXiv:2503.13657) analysed 1,600+ multi-agent execution 
 
 | System | Version | Hosted vs self-host | Embeddings | LLM for extraction |
 |---|---|---|---|---|
-| **AgentMem** | latest | hosted (default) | Gemini Embedding 2 | Gemini 2.5 Flash |
+| **DinoMem** | latest | hosted (default) | Gemini Embedding 2 | Gemini 2.5 Flash |
 | **Mem0** | latest | hosted (free tier) + OSS self-host | OpenAI | gpt-4o-mini |
 | **Zep** | latest | hosted | Zep default | Zep default |
 | **Cognee** | latest | self-host (zero-infra: SQLite+LanceDB+Kuzu) | OpenAI | gpt-4o-mini |
@@ -116,7 +116,7 @@ Two agents on simulated different replicas write conflicting facts at the same w
 - **S4.deterministic**: is the final state the same across 10 randomised sync orders? (Y/N)
 - **S4.lossless**: are both writes retrievable in history? (Y/N)
 
-This scenario is the headline differentiator. AgentMem is the only system we know of with formal CRDT semantics on memory. Most competitors will fail S4.deterministic.
+This scenario is the headline differentiator. DinoMem is the only system we know of with formal CRDT semantics on memory. Most competitors will fail S4.deterministic.
 
 ### S5 — Cross-workflow isolation
 
@@ -196,7 +196,7 @@ This is the most important property. Existing memory benchmarks publish numbers 
 
 ### Hard requirements
 
-- **One command run**: `uv run python -m agentmem_bench --sut all --scenarios all`
+- **One command run**: `uv run python -m dinomem_bench --sut all --scenarios all`
 - **Lock files**: `uv.lock` for Python deps, `Dockerfile` for OS-level stuff
 - **Pinned models**: every LLM is pinned to a specific version string (e.g., `gpt-4o-mini-2026-04-01`); we do not use `latest`
 - **Fixture data committed**: the 1,000 writes for S7 live in `fixtures/s7_writes.jsonl`
@@ -237,7 +237,7 @@ To prevent gerrymandering:
 - A system is "included" if it has a public Python or TypeScript client on PyPI / npm, OR a stable HTTP API + an OpenAPI spec.
 - We **do not** include systems we have no way to test (closed-source enterprise SaaS without free tier).
 - We **do** include unfunded / smaller systems (LangMem, raw pgvector) as floors.
-- We **do not** exclude AgentMem from any scenario it can technically run, even if we expect it to fail.
+- We **do not** exclude DinoMem from any scenario it can technically run, even if we expect it to fail.
 
 If a system was contacted for a free tier or API key and the maintainer declined, that's documented in `STATUS.md` per SUT with the request thread.
 
@@ -249,7 +249,7 @@ These should be resolved before coding begins. Track in GitHub issues with `desi
 
 1. **Embedding model parity** — should every SUT use OpenAI's `text-embedding-3-small`, or each SUT's default? Different choices yield different absolute numbers but the same *relative* ordering. Default proposal: **each SUT's default**, since that's what a real user gets out of the box. Document the choice in every report.
 
-2. **Concurrent-write simulation** — can we actually exercise CRDT behaviour against hosted services? Most don't expose vector clocks. Default proposal: **only run S4 against systems with vector-clock APIs** (AgentMem, possibly Zep via Graphiti). Score others as `N/A`.
+2. **Concurrent-write simulation** — can we actually exercise CRDT behaviour against hosted services? Most don't expose vector clocks. Default proposal: **only run S4 against systems with vector-clock APIs** (DinoMem, possibly Zep via Graphiti). Score others as `N/A`.
 
 3. **LLM judge bias** — using Claude as the judge of a benchmark in which Claude is a possible production user. Default proposal: **also run a Gemini 2.5 Flash judge in parallel** for triangulation; flag any case where they disagree.
 
@@ -259,7 +259,7 @@ These should be resolved before coding begins. Track in GitHub issues with `desi
 
 6. **Hosting** — runs publish to GitHub releases as artifacts, with a static HTML viewer in the repo. No external dashboard at v0.1.
 
-7. **Conflict-of-interest disclosure** — AgentMem maintainers run the benchmark. We disclose this prominently in every report. Long-term mitigation: invite competitors to PR their own adapters (we keep merge rights on harness code only).
+7. **Conflict-of-interest disclosure** — DinoMem maintainers run the benchmark. We disclose this prominently in every report. Long-term mitigation: invite competitors to PR their own adapters (we keep merge rights on harness code only).
 
 ---
 
@@ -268,7 +268,7 @@ These should be resolved before coding begins. Track in GitHub issues with `desi
 Once design is signed off, implementation is roughly:
 
 1. **Week 1**: Harness skeleton, SUT adapter interface, run loop, output format. No real SUTs yet — just a fake SUT for testing the harness.
-2. **Week 2**: Adapters for AgentMem + pgvector baseline + LangMem (free, self-host). Scenarios S1, S2, S3, S6.
+2. **Week 2**: Adapters for DinoMem + pgvector baseline + LangMem (free, self-host). Scenarios S1, S2, S3, S6.
 3. **Week 3**: Mem0 + Zep + Cognee + Supermemory adapters. All 7 scenarios. First end-to-end run.
 4. **Week 4**: Polish, cost tracking, comparison tooling, blog post draft.
 
@@ -280,11 +280,11 @@ Realistic ship date for v0.1 results: ~4 weeks of focused work. If the two-found
 
 We will consider v0.1 a success if:
 
-- A reader who has never used any of these systems can run `agentmem-bench` end-to-end with one command and produce the same numbers we published.
+- A reader who has never used any of these systems can run `dinomem-bench` end-to-end with one command and produce the same numbers we published.
 - We can defensibly answer "how does your system perform on contradiction handling vs Mem0?" with a specific scenario number and a link to the trial JSONL.
 - The methodology section survives review by at least one independent researcher without major methodological objections.
 
-Not a success criterion: AgentMem winning every metric. We expect to lose some (e.g., latency vs Mem0's hosted, which has a head start on infrastructure).
+Not a success criterion: DinoMem winning every metric. We expect to lose some (e.g., latency vs Mem0's hosted, which has a head start on infrastructure).
 
 ---
 

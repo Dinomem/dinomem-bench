@@ -1,7 +1,7 @@
 # Mem0 adapter — run results
 
 **Date:** 2026-06-12
-**Adapter:** `agentmem_bench/suts/mem0.py` (hosted `mem0ai` Python `MemoryClient`).
+**Adapter:** `dinomem_bench/suts/mem0.py` (hosted `mem0ai` Python `MemoryClient`).
 **Capabilities:** `{SCOPES}` only — emulated via metadata filtering (Mem0 stores
 no scope label). No conflict/policy/temporal/CRDT API → those score N/A.
 
@@ -44,7 +44,7 @@ passes this; Mem0 fails it.
 
 ## Cross-system comparison so far
 
-| Metric | pgvector (floor) | **mem0** | agentmem |
+| Metric | pgvector (floor) | **mem0** | dinomem |
 |---|---|---|---|
 | S1 conflict detect + resolve | N/A | N/A | **✅ ✅** (only one) |
 | S1 read consistency | ✅ | ✅ | ✅ |
@@ -58,12 +58,12 @@ passes this; Mem0 fails it.
 | S7 search p50 | 309 ms | 507 ms | (deferred) |
 | S7 cost | ~$0 marginal | subscription (n/a per-op) | subscription (n/a per-op) |
 
-**Reading it:** On multi-agent coordination, **only AgentMem fills S1** (the one
+**Reading it:** On multi-agent coordination, **only DinoMem fills S1** (the one
 metric that needs a real memory system); Mem0 ties the floor and *loses* one
-metric to it; S3/S5 don't separate anyone. AgentMem's temporal is incomplete (S2
+metric to it; S3/S5 don't separate anyone. DinoMem's temporal is incomplete (S2
 gap) and its CRDT is untestable black-box (S4). Latency: pgvector fastest
 (embedding-bound ~307 ms), Mem0 ~3–4× slower on writes (~1.1 s, hosted + its own
-processing). AgentMem's S2/S6/S7 await a Gemini-quota reset.
+processing). DinoMem's S2/S6/S7 await a Gemini-quota reset.
 
 ## Harness improvements from this adapter (committed)
 - `Scenario.settle()` now also guards S3 (wait for index-visibility, so async SUTs
@@ -75,6 +75,6 @@ processing). AgentMem's S2/S6/S7 await a Gemini-quota reset.
 
 ## Run
 ```bash
-MEM0_API_KEY=... .venv/bin/python -m agentmem_bench --sut mem0 --scenarios all
+MEM0_API_KEY=... .venv/bin/python -m dinomem_bench --sut mem0 --scenarios all
 # S7 at full size burns 500 of the 1k/mo free retrievals — use AMBENCH_S7_* to scale down
 ```

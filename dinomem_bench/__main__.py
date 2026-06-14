@@ -1,7 +1,7 @@
 """CLI entry point.
 
-    python -m agentmem_bench --sut all --scenarios all
-    python -m agentmem_bench --sut fake --scenarios s1,s4
+    python -m dinomem_bench --sut all --scenarios all
+    python -m dinomem_bench --sut fake --scenarios s1,s4
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from .suts import available
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(
-        prog="agentmem-bench",
+        prog="dinomem-bench",
         description="Reproducible multi-agent memory benchmark (S1–S7).",
     )
     p.add_argument("--sut", default="all",
@@ -25,7 +25,7 @@ def main(argv: list[str] | None = None) -> int:
                    help="'all' or comma list of ids/slugs, e.g. 's1,s4'.")
     p.add_argument("--out", default="runs", help="output root dir (default: runs/)")
     p.add_argument("--list", action="store_true", help="list SUTs + scenarios and exit")
-    p.add_argument("--version", action="version", version=f"agentmem-bench {__version__}")
+    p.add_argument("--version", action="version", version=f"dinomem-bench {__version__}")
     args = p.parse_args(argv)
 
     if args.list:
@@ -50,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
     # late import so --list/--help don't pay for it
     from .runner import run
 
-    print(f"agentmem-bench {__version__}")
+    print(f"dinomem-bench {__version__}")
     print(f"SUTs:      {', '.join(sut_names)}")
     print(f"Scenarios: {', '.join(s.id for s in selected)}")
     run_dir = run(sut_names, selected, Path(args.out))

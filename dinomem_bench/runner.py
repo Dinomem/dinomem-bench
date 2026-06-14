@@ -146,7 +146,7 @@ def _write_outputs(run_dir: Path, sut_meta, scenarios, runs: list[ScenarioRun]) 
 def _summary_md(manifest: dict, runs: list[ScenarioRun]) -> str:
     suts = [s["name"] for s in manifest["suts"]]
     lines = [
-        f"# agentmem-bench run `{manifest['run_id']}`",
+        f"# dinomem-bench run `{manifest['run_id']}`",
         "",
         f"- harness {manifest['harness_version']} · python {manifest['python']} · git {manifest['git_sha']}",
         f"- SUTs: {', '.join(suts)}",

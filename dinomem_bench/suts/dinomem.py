@@ -1,6 +1,6 @@
-"""AgentMem SUT adapter — the hosted multi-agent memory service.
+"""DinoMem SUT adapter — the hosted multi-agent memory service.
 
-Talks to the AgentMem v1 HTTP API (the surface the `agentmem-py` SDK wraps),
+Talks to the DinoMem v1 HTTP API (the surface the `dinomem-py` SDK wraps),
 using httpx directly so we can observe write-time policy *blocking* (the SDK's
 `write` raises on the 4xx block instead of returning the conflict body).
 
@@ -15,8 +15,8 @@ reads, but exposes no replica-level write/sync API, so S4's replica protocol
 can't be driven → S4 scores N/A. (Worth exposing a replica/sync test hook upstream.)
 
 Config via env:
-  AGENTMEM_API_KEY   (required)
-  AGENTMEM_BASE_URL  (default: the SDK's hosted endpoint)
+  DINOMEM_API_KEY   (required)
+  DINOMEM_BASE_URL  (default: the SDK's hosted endpoint)
 
 Run isolation: every workflow_id is namespaced with a per-setup token so repeated
 runs against the shared hosted org don't collide. Cost ($/op) is server-side
@@ -55,9 +55,9 @@ def _raise(r) -> None:
     raise RuntimeError(f"HTTP {r.status_code} {r.request.method} {r.request.url.path}: {r.text[:300]}")
 
 
-class AgentMemSUT(SUTAdapter):
-    name = "agentmem"
-    version = "api-v1 (agentmem-py 0.2.1)"
+class DinoMemSUT(SUTAdapter):
+    name = "dinomem"
+    version = "api-v1 (dinomem-py 0.2.1)"
     capabilities = frozenset(
         {Capability.SCOPES, Capability.CONFLICTS, Capability.POLICIES, Capability.TEMPORAL}
     )
@@ -66,10 +66,13 @@ class AgentMemSUT(SUTAdapter):
     def setup(self) -> None:
         import httpx  # lazy
 
-        key = os.environ.get("AGENTMEM_API_KEY")
+        # back-compat: fall back to the old AGENTMEM_* env names so existing users don't break
+        key = os.environ.get("DINOMEM_API_KEY") or os.environ.get("AGENTMEM_API_KEY")
         if not key:
-            raise RuntimeError("AGENTMEM_API_KEY is required for the agentmem SUT")
-        base = os.environ.get("AGENTMEM_BASE_URL", _DEFAULT_BASE_URL).rstrip("/")
+            raise RuntimeError("DINOMEM_API_KEY is required for the dinomem SUT")
+        # back-compat: old env name
+        base = os.environ.get("DINOMEM_BASE_URL") or os.environ.get("AGENTMEM_BASE_URL") or _DEFAULT_BASE_URL
+        base = base.rstrip("/")
         self._http = httpx.Client(
             base_url=base,
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},

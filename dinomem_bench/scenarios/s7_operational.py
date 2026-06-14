@@ -17,7 +17,7 @@ from .base import Scenario, MetricResult
 
 WF = "s7-wf"
 # DESIGN default is 1000 writes + 500 searches. Hosted SUTs with rate/quota limits
-# (Mem0 free tier: 1k retrievals/mo; AgentMem: Gemini extraction quota) can scale
+# (Mem0 free tier: 1k retrievals/mo; DinoMem: Gemini extraction quota) can scale
 # down via env to get valid latency percentiles without burning the monthly quota.
 N_WRITES = int(os.environ.get("AMBENCH_S7_WRITES", "1000"))
 N_SEARCHES = int(os.environ.get("AMBENCH_S7_SEARCHES", "500"))

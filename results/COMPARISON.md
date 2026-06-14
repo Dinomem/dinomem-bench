@@ -1,4 +1,4 @@
-# agentmem-bench — cross-system comparison
+# dinomem-bench — cross-system comparison
 
 Generated from 28 run(s) in `runs/`. Per (SUT, scenario) the most
 recent run with real metrics is used (provenance at the bottom). FakeSUT is
@@ -6,7 +6,7 @@ the in-process reference, not a system under test.
 
 ## Scorecard
 
-| Scenario | Metric | pgvector | mem0 | zep | cognee | supermemory | langmem | agentmem | fake |
+| Scenario | Metric | pgvector | mem0 | zep | cognee | supermemory | langmem | dinomem | fake |
 |---|---|---|---|---|---|---|---|---|---|
 | S1 | C1.detected | — N/A | — N/A | — N/A | — N/A | — N/A | — N/A | ✅ Y | ✅ Y |
 | S1 | C1.resolved | — N/A | — N/A | — N/A | — N/A | — N/A | — N/A | ✅ Y | ✅ Y |
@@ -47,20 +47,20 @@ the in-process reference, not a system under test.
 | cognee | 1 | 0 | 16 | 0 | 7 |
 | supermemory | 4 | 1 | 12 | 0 | 7 |
 | langmem | 5 | 0 | 12 | 0 | 11 |
-| agentmem | 12 | 2 | 3 | 0 | 7 |
+| dinomem | 12 | 2 | 3 | 0 | 7 |
 | fake | 17 | 0 | 0 | 0 | 7 |
 
 ## Provenance
 
 | SUT | scenario | run |
 |---|---|---|
-| agentmem | S1 | `2026-06-12-133803` |
-| agentmem | S2 | `2026-06-12-134438` |
-| agentmem | S3 | `2026-06-12-133803` |
-| agentmem | S4 | `2026-06-12-133803` |
-| agentmem | S5 | `2026-06-13-055841` |
-| agentmem | S6 | `2026-06-13-085930` |
-| agentmem | S7 | `2026-06-13-055841` |
+| dinomem | S1 | `2026-06-12-133803` |
+| dinomem | S2 | `2026-06-12-134438` |
+| dinomem | S3 | `2026-06-12-133803` |
+| dinomem | S4 | `2026-06-12-133803` |
+| dinomem | S5 | `2026-06-13-055841` |
+| dinomem | S6 | `2026-06-13-085930` |
+| dinomem | S7 | `2026-06-13-055841` |
 | cognee | S1 | `2026-06-13-053651` |
 | cognee | S2 | `2026-06-13-053651` |
 | cognee | S3 | `2026-06-13-054802` |

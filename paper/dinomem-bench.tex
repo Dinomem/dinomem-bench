@@ -20,8 +20,8 @@
 \newcommand{\na}{\textcolor{gray}{--}}
 \usepackage{pifont}
 
-\title{\textbf{agentmem-bench: A Reproducible Benchmark for\\ Multi-Agent Memory Coordination}}
-\author{Aneesh \\ \texttt{devsforfun} \\ \texttt{github.com/rooney011/agentmem-bench}}
+\title{\textbf{dinomem-bench: A Reproducible Benchmark for\\ Multi-Agent Memory Coordination}}
+\author{Aneesh \\ \texttt{devsforfun} \\ \texttt{github.com/DinoMem/dinomem-bench}}
 \date{Working draft --- \today}
 
 \begin{document}
@@ -33,9 +33,9 @@ recalling information from one long conversation. We argue this misses the domin
 failure mode of \emph{multi-agent} systems, where memory is shared and the hard
 problems are coordination: contradictory writes, temporal validity, scope leakage,
 concurrent-write convergence, and conflict-resolution policy. We introduce
-\textbf{agentmem-bench}, a reproducible benchmark of seven deterministic scenarios
+\textbf{dinomem-bench}, a reproducible benchmark of seven deterministic scenarios
 (S1--S7) that isolate these properties, and evaluate seven shipped memory systems
-(AgentMem, Mem0, Zep, Cognee, Supermemory, LangMem, and a raw pgvector baseline)
+(DinoMem, Mem0, Zep, Cognee, Supermemory, LangMem, and a raw pgvector baseline)
 behind a uniform black-box adapter, with an in-process reference implementation that
 validates the scenarios themselves. We report per-scenario, per-metric results---not
 a single score---and find the capability space sharply non-uniform: contradiction
@@ -148,7 +148,7 @@ semantics for all scenarios and passes every correctness metric, validating that
 assertions are satisfiable and sound---a check absent from most benchmarks.
 
 \section{Systems Under Test \& Setup}\label{sec:sut}
-We evaluate AgentMem, Mem0, Zep, Cognee, Supermemory, LangMem, and a pgvector
+We evaluate DinoMem, Mem0, Zep, Cognee, Supermemory, LangMem, and a pgvector
 baseline (INSERT + cosine top-$k$), plus the FakeSUT reference. Embeddings follow each
 system's default (the out-of-box experience), documented per system; models are
 pinned to version strings. The harness runs with one command per system and emits a
@@ -164,34 +164,34 @@ pipelines are awaited to index-visibility rather than slept on.
   \centering
   \includegraphics[width=0.92\linewidth]{capability_heatmap.pdf}
   \caption{Capability matrix across S1--S6. Green = pass, red = fail, gray = N/A (no
-  API). Only AgentMem fills S1 (contradiction) and S6 (policy); only Zep fills S2
-  (temporal); S4 (CRDT) is N/A for every shipping system. AgentMem's S2 failure (it
+  API). Only DinoMem fills S1 (contradiction) and S6 (policy); only Zep fills S2
+  (temporal); S4 (CRDT) is N/A for every shipping system. DinoMem's S2 failure (it
   accepts \texttt{at\_time} but returns both facts) is shown in red.}
   \label{fig:heatmap}
 \end{figure}
 
 Figure~\ref{fig:heatmap} summarizes correctness. \textbf{S1 (contradiction):} only
-AgentMem exposes a conflict-detection API and resolves per policy (it blocked the
+DinoMem exposes a conflict-detection API and resolves per policy (it blocked the
 executor's conflicting write under \texttt{planner\_wins} with a high-severity
 conflict description). No other system surfaces a contradiction; we verified Mem0's
 write-time LLM dedup does \emph{not} resolve it---the stale and new values coexist.
 \textbf{S2 (temporal):} only Zep answers point-in-time queries correctly, via
-bitemporal fact invalidation ($\texttt{invalid\_at}=T_1$); AgentMem accepts
+bitemporal fact invalidation ($\texttt{invalid\_at}=T_1$); DinoMem accepts
 \texttt{at\_time} but returns both facts (a genuine gap), and others lack temporal
 queries entirely. \textbf{S3/S5 (scope):} expressible as filter predicates, so the
 baselines pass---confirming these do not differentiate memory systems from vector
 stores; the informative split is intra-tier: \emph{verbatim stores (pgvector,
-LangMem, AgentMem) preserve a re-scoped fact; dedup/aggregating stores (Mem0,
+LangMem, DinoMem) preserve a re-scoped fact; dedup/aggregating stores (Mem0,
 Supermemory) silently drop the scope change}. \textbf{S4 (CRDT):} N/A for every
 shipping system---none exposes a replica/vector-clock API drivable by a black-box
-convergence test; only the reference passes. \textbf{S6 (policy):} AgentMem satisfies
+convergence test; only the reference passes. \textbf{S6 (policy):} DinoMem satisfies
 all four policies to spec; no other system ships conflict policies.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.92\linewidth]{latency.pdf}
   \caption{Per-operation latency (S7), $\log$ scale. A ${\sim}70\times$ spread:
-  LangMem/Zep/pgvector ${\approx}300$\,ms; AgentMem/Mem0 ${\approx}1$\,s; Supermemory
+  LangMem/Zep/pgvector ${\approx}300$\,ms; DinoMem/Mem0 ${\approx}1$\,s; Supermemory
   ${\approx}2.2$\,s; Cognee ${\approx}21$\,s (per-write LLM graph extraction).}
   \label{fig:latency}
 \end{figure}
@@ -215,7 +215,7 @@ stated $N$ (their order-of-magnitude latency is unambiguous regardless of $N$).
     Zep          & $322.1\pm113.4$ & 299.5 & 405.4 & 767.8 & 100 \\
     pgvector     & $518.8\pm260.0$ & 469.9 & 725.3 & 1425.2 & 100 \\
     Mem0         & $1119.5\pm145.1$ & 1082.4 & 1498.4 & 1661.0 & 40 \\
-    AgentMem     & \na & 1004.9 & 1084.2 & --- & ${\sim}20^{\dagger}$ \\
+    DinoMem     & \na & 1004.9 & 1084.2 & --- & ${\sim}20^{\dagger}$ \\
     Supermemory  & \na & 2221.6 & 7172.5 & --- & ${\sim}30^{\dagger}$ \\
     Cognee       & \na & 20965.4 & 28168.0 & --- & ${\sim}5^{\dagger}$ \\
     \bottomrule
@@ -225,7 +225,7 @@ stated $N$ (their order-of-magnitude latency is unambiguous regardless of $N$).
 \section{Operational Findings}\label{sec:operational}
 Static metrics understate what running the systems revealed.
 \begin{itemize}
-  \item \textbf{LLM-quota coupling (AgentMem).} Conflict detection/extraction is
+  \item \textbf{LLM-quota coupling (DinoMem).} Conflict detection/extraction is
   backed by a generative model; under a daily free-tier quota it returned \texttt{500}
   rather than degrading gracefully, and we observed a \texttt{500} under
   near-simultaneous policy writes. S6 completed only after provisioning fresh model
@@ -248,7 +248,7 @@ Static metrics understate what running the systems revealed.
 \section{Discussion}
 The results refute a one-dimensional reading of ``memory system.'' Coordination
 capabilities are \emph{disjoint across vendors}: contradiction handling and policy
-(AgentMem), temporal validity (Zep) are each provided by one system, and several
+(DinoMem), temporal validity (Zep) are each provided by one system, and several
 ``memory systems'' provide nothing a vector store does not. Buyers should select by
 the specific coordination property their application requires---and verify the vendor
 even exposes an \emph{API} for it. A raw pgvector table is a strong, cheap baseline at
@@ -266,9 +266,9 @@ deployments. \textbf{Versioning.} Hosted backends may change server-side behavio
 cannot pin; we pin client/package versions and re-publish on a cadence.
 
 \section{Conflict of Interest}\label{sec:coi}
-The authors develop \textbf{AgentMem}, one of the seven systems under test, and
-AgentMem attains the only passes on S1 and S6. We mitigate as follows: (i)~this
-statement is prominent; (ii)~we report AgentMem's \emph{gap} (S2) and the dimension on
+The authors develop \textbf{DinoMem}, one of the seven systems under test, and
+DinoMem attains the only passes on S1 and S6. We mitigate as follows: (i)~this
+statement is prominent; (ii)~we report DinoMem's \emph{gap} (S2) and the dimension on
 which it is \emph{untestable like everyone else} (S4) in the same figure; (iii)~we
 document an operational failure in our own system (\S\ref{sec:operational}); (iv)~every
 scenario is a public, deterministic script and every result links to a raw trial log,
@@ -276,7 +276,7 @@ so any reader can reproduce or refute; (v)~adapters are open to PRs from competi
 vendors. We report no single aggregate score.
 
 \section{Conclusion \& Future Work}
-agentmem-bench reframes memory evaluation from single-agent recall to multi-agent
+dinomem-bench reframes memory evaluation from single-agent recall to multi-agent
 coordination, and finds the capability landscape sharply differentiated and, on one
 axis (CRDT), uniformly unverifiable in shipping products. v0.2 will add a
 replica/vector-clock test hook so S4 can score systems that expose one, tighten

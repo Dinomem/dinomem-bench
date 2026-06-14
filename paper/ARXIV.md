@@ -1,19 +1,19 @@
-# arXiv submission guide — agentmem-bench
+# arXiv submission guide — dinomem-bench
 
 ## Build & package
 
 ```bash
 cd paper
-make            # -> agentmem-bench.pdf (proofread this)
-make arxiv      # -> agentmem-bench-arxiv.tar.gz  (the file you upload)
+make            # -> dinomem-bench.pdf (proofread this)
+make arxiv      # -> dinomem-bench-arxiv.tar.gz  (the file you upload)
 ```
 
-`make arxiv` produces a self-contained tarball containing `agentmem-bench.tex`,
-`agentmem-bench.bbl` (generated — so arXiv doesn't re-run BibTeX), and
+`make arxiv` produces a self-contained tarball containing `dinomem-bench.tex`,
+`dinomem-bench.bbl` (generated — so arXiv doesn't re-run BibTeX), and
 `figures/*.pdf`. arXiv compiles it with `pdflatex` by default; all packages used
 are in arXiv's standard TeX Live.
 
-## Before you upload — fill these in (`agentmem-bench.tex`)
+## Before you upload — fill these in (`dinomem-bench.tex`)
 
 - [ ] **Author + affiliation + email** (currently placeholder `Aneesh / devsforfun`).
       Add ORCID if you have one.
@@ -29,7 +29,7 @@ are in arXiv's standard TeX Live.
 - **License:** `CC BY 4.0` recommended (matches the repo's open posture; lets
   others reuse the figures/methodology with attribution).
 - **Comments field:** e.g. *"Code, scenarios, and all raw run logs:
-  https://github.com/rooney011/agentmem-bench"* — and, given §10, you may also
+  https://github.com/DinoMem/dinomem-bench"* — and, given §10, you may also
   state the conflict of interest here.
 
 ## Abstract (paste into the form)
@@ -39,8 +39,8 @@ are in arXiv's standard TeX Live.
 > dominant failure mode of multi-agent systems, where memory is shared and the hard
 > problems are coordination: contradictory writes, temporal validity, scope leakage,
 > concurrent-write convergence, and conflict-resolution policy. We introduce
-> agentmem-bench, a reproducible benchmark of seven deterministic scenarios (S1–S7)
-> that isolate these properties, and evaluate seven shipped memory systems (AgentMem,
+> dinomem-bench, a reproducible benchmark of seven deterministic scenarios (S1–S7)
+> that isolate these properties, and evaluate seven shipped memory systems (DinoMem,
 > Mem0, Zep, Cognee, Supermemory, LangMem, and a raw pgvector baseline) behind a
 > uniform black-box adapter, with an in-process reference implementation that
 > validates the scenarios themselves. We report per-scenario, per-metric results —

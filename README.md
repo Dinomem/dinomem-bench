@@ -1,4 +1,4 @@
-# agentmem-bench
+# dinomem-bench
 
 A reproducible benchmark for **multi-agent memory systems** — the gap LoCoMo, LongMemEval, and ConvoMem don't cover.
 
@@ -8,7 +8,7 @@ This repo is the methodology + harness + datasets, not a product. Read [`DESIGN.
 
 LoCoMo (Maharana et al., ACL 2024) and LongMemEval (ICLR 2025) measure **single-agent long-term memory** — does the model recall what was said earlier? Useful, but Letta has publicly argued these measure retrieval, not agent memory ([Letta blog, 2025](https://www.letta.com/blog/long-conversation-locomo)). And **no existing benchmark stresses multi-agent coordination on memory**: contradictory writes, scope leakage, CRDT convergence, policy enforcement.
 
-`agentmem-bench` fills that gap. We test scenarios with **multiple agents writing and reading shared memory**, and score whether the system:
+`dinomem-bench` fills that gap. We test scenarios with **multiple agents writing and reading shared memory**, and score whether the system:
 
 1. Surfaces or auto-resolves contradictions according to the user's policy
 2. Enforces visibility scopes (private / team / global)
@@ -16,14 +16,14 @@ LoCoMo (Maharana et al., ACL 2024) and LongMemEval (ICLR 2025) measure **single-
 4. Returns the right answer at the right time (temporal validity)
 5. Doesn't leak across workflows / orgs
 
-We run the same scenarios against every shipped memory system (Mem0, Zep, Cognee, Supermemory, LangMem, raw pgvector, AgentMem) on the same hardware with the same LLM, and publish reproducible numbers.
+We run the same scenarios against every shipped memory system (Mem0, Zep, Cognee, Supermemory, LangMem, raw pgvector, DinoMem) on the same hardware with the same LLM, and publish reproducible numbers.
 
 ## Status
 
 **Harness skeleton landed (v0.1, Week-1 scope).** The adapter interface, a
 reference `FakeSUT`, all seven scenarios (S1–S7) with the metric names from
 [`DESIGN.md`](./DESIGN.md), the run loop, and the output format are implemented
-and validated end-to-end. Real SUT adapters (pgvector, AgentMem, Mem0, …) are
+and validated end-to-end. Real SUT adapters (pgvector, DinoMem, Mem0, …) are
 next. See [`DESIGN.md`](./DESIGN.md) for the methodology.
 
 ## Running
@@ -31,9 +31,9 @@ next. See [`DESIGN.md`](./DESIGN.md) for the methodology.
 No third-party deps for the core + the reference SUT — stdlib only:
 
 ```bash
-python3 -m agentmem_bench --sut fake --scenarios all   # full run
-python3 -m agentmem_bench --sut fake --scenarios s1,s4 # a subset
-python3 -m agentmem_bench --list                        # SUTs + scenarios
+python3 -m dinomem_bench --sut fake --scenarios all   # full run
+python3 -m dinomem_bench --sut fake --scenarios s1,s4 # a subset
+python3 -m dinomem_bench --list                        # SUTs + scenarios
 python3 tests/test_smoke.py                             # smoke tests (no pytest needed)
 ```
 
@@ -48,10 +48,10 @@ release assets, per the design).
 # pgvector floor — needs Postgres+pgvector + OpenAI embeddings
 docker run -d --name amb-pg -e POSTGRES_PASSWORD=bench -e POSTGRES_DB=bench -p 5433:5432 pgvector/pgvector:pg16
 DATABASE_URL=postgresql://postgres:bench@localhost:5433/bench OPENAI_API_KEY=... \
-  python -m agentmem_bench --sut pgvector --scenarios all      # extra: psycopg[binary], openai
+  python -m dinomem_bench --sut pgvector --scenarios all      # extra: psycopg[binary], openai
 
-MEM0_API_KEY=...      python -m agentmem_bench --sut mem0 --scenarios all     # extra: mem0ai
-AGENTMEM_API_KEY=...  python -m agentmem_bench --sut agentmem --scenarios all # extra: httpx
+MEM0_API_KEY=...      python -m dinomem_bench --sut mem0 --scenarios all     # extra: mem0ai
+DINOMEM_API_KEY=...  python -m dinomem_bench --sut dinomem --scenarios all # extra: httpx
 ```
 
 Hosted SUTs with rate/quota limits can scale S7 down with `AMBENCH_S7_WRITES` /
@@ -61,7 +61,7 @@ are size-robust.
 ### Comparison matrix
 
 ```bash
-python -m agentmem_bench.compare      # reads runs/ -> results/COMPARISON.md
+python -m dinomem_bench.compare      # reads runs/ -> results/COMPARISON.md
 ```
 
 `compare.py` merges multiple (incl. partial / re-run) `runs/` into one matrix:
@@ -73,20 +73,20 @@ provenance. **The current matrix is committed at [`results/COMPARISON.md`](./res
 Different systems fill different coordination gaps — "best memory system" is a
 category error (DESIGN §3):
 
-- **S1 (contradiction detect + resolve): only AgentMem.** Every floor system
+- **S1 (contradiction detect + resolve): only DinoMem.** Every floor system
   (pgvector / mem0 / supermemory / langmem) and the graph systems (zep / cognee)
   are N/A — no conflict-surfacing/policy API.
 - **S2 (temporal validity): only Zep.** It auto-invalidates a fact when a later
-  one contradicts it (`invalid_at`), so `at_time` returns the right fact. AgentMem
+  one contradicts it (`invalid_at`), so `at_time` returns the right fact. DinoMem
   accepts `at_time` but returns both (gap); everyone else is N/A.
 - **S3 scope / S5 isolation:** the verbatim floors pass cleanly (pgvector, langmem,
-  + AgentMem). mem0 / supermemory **lose `S3.team_visible`** (content dedup/aggregation
+  + DinoMem). mem0 / supermemory **lose `S3.team_visible`** (content dedup/aggregation
   ignores scope changes). zep / cognee are N/A (graph-centric, no per-agent scope;
   cognee's zero-setup mode doesn't isolate at all — 100% leak — see its note).
 - **S4 (CRDT): N/A for every system** — no hosted/self-host SUT exposes a
   replica/sync API to drive the convergence test (only the FakeSUT reference can).
 - **S7 latency:** langmem / zep / pgvector ~300 ms · mem0 ~1.1 s · supermemory
-  ~2.2 s · **cognee ~21 s** (add+cognify per write). AgentMem S5/S6/S7 await a
+  ~2.2 s · **cognee ~21 s** (add+cognify per write). DinoMem S5/S6/S7 await a
   Gemini-quota reset; its S6 also surfaced a backend 5xx under rapid policy writes.
 
 The full per-metric matrix is committed at
@@ -95,11 +95,11 @@ The full per-metric matrix is committed at
 
 ### Adding a system under test
 
-Implement `agentmem_bench.adapter.SUTAdapter` (the small `write` / `search` /
+Implement `dinomem_bench.adapter.SUTAdapter` (the small `write` / `search` /
 `check_conflicts` / `set_policy` / replica surface), declare its
-`capabilities`, and register it in `agentmem_bench/suts/__init__.py`. Methods a
+`capabilities`, and register it in `dinomem_bench/suts/__init__.py`. Methods a
 system can't support raise `Unsupported` → the affected metrics score `N/A`, not
-a failure. `FakeSUT` (`agentmem_bench/suts/fake.py`) is the worked reference.
+a failure. `FakeSUT` (`dinomem_bench/suts/fake.py`) is the worked reference.
 
 ## License
 

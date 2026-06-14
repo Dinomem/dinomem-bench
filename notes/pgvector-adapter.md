@@ -1,10 +1,10 @@
 # pgvector adapter — first real SUT run
 
 **Date:** 2026-06-12
-**Adapter:** `agentmem_bench/suts/pgvector.py`
+**Adapter:** `dinomem_bench/suts/pgvector.py`
 **Setup:** Postgres `pgvector/pgvector:pg16` (docker), embeddings
 `text-embedding-3-small` (1536-dim, pinned), `lists=100` ivfflat cosine index.
-**Run:** `python -m agentmem_bench --sut pgvector --scenarios all` (`runs/2026-06-12-012323`).
+**Run:** `python -m dinomem_bench --sut pgvector --scenarios all` (`runs/2026-06-12-012323`).
 
 The first non-fake SUT — and the floor the DESIGN is built around. It validates
 that the harness scores a raw vector store the way the methodology intends.
@@ -39,7 +39,7 @@ convergence (S4), and policy fidelity (S6).
 
 So S3 and S5 **do not separate** a memory system from a raw vector store; the
 managed systems have to earn their keep on S1/S2/S4/S6. That contrast is the
-whole point of the benchmark and is what the AgentMem / Mem0 adapters will show.
+whole point of the benchmark and is what the DinoMem / Mem0 adapters will show.
 
 ### Latency is embedding-bound, not DB-bound
 ~300 ms/op is the OpenAI embedding round-trip; the ivfflat cosine query itself is

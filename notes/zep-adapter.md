@@ -1,7 +1,7 @@
 # Zep adapter — run results: the only SUT that fills S2
 
 **Date:** 2026-06-12
-**Adapter:** `agentmem_bench/suts/zep.py` (hosted `zep-cloud` Python SDK, Graphiti
+**Adapter:** `dinomem_bench/suts/zep.py` (hosted `zep-cloud` Python SDK, Graphiti
 temporal knowledge graph).
 **Capabilities:** `{TEMPORAL}`. Graph-centric (a `graph_id` is the isolation unit;
 no per-agent scope), so SCOPES / conflict-surfacing / policy / CRDT are N/A.
@@ -40,10 +40,10 @@ The adapter sets `created_at` on `graph.add` (so we control the episode times) a
 answers `at_time` by filtering edges on `valid_at <= t < invalid_at`. Result:
 `at_time=T0` → green only; `at_time=T1` → red only. **Zep is the first and only
 SUT to pass S2** — pgvector / mem0 / supermemory are N/A (no temporal), and
-AgentMem accepts `atTime` but returns both facts (its S2 gap).
+DinoMem accepts `atTime` but returns both facts (its S2 gap).
 
 This makes **S2 a genuinely differentiating scenario**, the temporal analogue of
-S1: just as only AgentMem fills conflict detection+resolution, only Zep fills
+S1: just as only DinoMem fills conflict detection+resolution, only Zep fills
 temporal validity. Different systems, different strengths — exactly the design's
 thesis (DESIGN §3: "best memory system is a category error").
 
@@ -64,5 +64,5 @@ thesis (DESIGN §3: "best memory system is a category error").
 ## Run
 ```bash
 ZEP_API_KEY=... AMBENCH_SETTLE_TIMEOUT=90 \
-  python -m agentmem_bench --sut zep --scenarios all
+  python -m dinomem_bench --sut zep --scenarios all
 ```

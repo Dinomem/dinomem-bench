@@ -1,7 +1,7 @@
 # LangMem adapter — run results: the cleanest floor
 
 **Date:** 2026-06-13
-**Adapter:** `agentmem_bench/suts/langmem.py` — LangGraph `InMemoryStore` + an
+**Adapter:** `dinomem_bench/suts/langmem.py` — LangGraph `InMemoryStore` + an
 OpenAI embedding index (`text-embedding-3-small`), namespaces for scoping. This is
 the DESIGN's "LangMem floor, LangGraph backend, OpenAI embeddings" minus the
 Postgres infra (same semantics, zero infra).
@@ -57,5 +57,5 @@ on par with pgvector and zep, far faster than mem0 (~1.1 s) / supermemory (~2.2 
 
 ## Run
 ```bash
-OPENAI_API_KEY=... python -m agentmem_bench --sut langmem --scenarios all  # extra: langmem, langchain-openai, langgraph
+OPENAI_API_KEY=... python -m dinomem_bench --sut langmem --scenarios all  # extra: langmem, langchain-openai, langgraph
 ```

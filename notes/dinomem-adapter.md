@@ -1,11 +1,11 @@
-# AgentMem adapter — built; live run deferred
+# DinoMem adapter — built; live run deferred
 
 **Date:** 2026-06-12
-**Adapter:** `agentmem_bench/suts/agentmem.py` (httpx against the v1 HTTP API).
+**Adapter:** `dinomem_bench/suts/dinomem.py` (httpx against the v1 HTTP API).
 **Status:** Built + wired (imports, registers, capabilities verified). **Live run
-deferred** — the hosted AgentMem Supabase project (`lwbwcuuzoituanwhekyo.supabase.co`)
+deferred** — the hosted DinoMem Supabase project (`lwbwcuuzoituanwhekyo.supabase.co`)
 doesn't resolve (paused free-tier, same as the Fincil project). Needs the project
-restored + `AGENTMEM_API_KEY` to run.
+restored + `DINOMEM_API_KEY` to run.
 
 ## API → SUTAdapter mapping (from the backend source `Mem/.../api`)
 
@@ -35,9 +35,9 @@ outcome is implementation-specific; the unambiguous signal is surfacing).
   instead of raising; the adapter records it and `pending_events()` surfaces the
   `human_in_loop` ones (the client-observable HITL signal — webhook delivery
   itself isn't observable client-side).
-- **S4 = N/A:** no replica/sync API. Even AgentMem — the supposed S4 winner — can't
+- **S4 = N/A:** no replica/sync API. Even DinoMem — the supposed S4 winner — can't
   be driven through the replica protocol via its public API. *Actionable for
-  AgentMem: expose a replica/vector-clock test hook so S4 can actually score it;
+  DinoMem: expose a replica/vector-clock test hook so S4 can actually score it;
   otherwise the CRDT claim is untestable by black-box benchmarks.*
 - **S7 cost = 0 (caveat):** extraction (Gemini) + embeddings are server-side and
   not billed back to the client per-op, so `$/1k` isn't client-observable. Latency
@@ -59,10 +59,10 @@ these — especially (1).
 
 ## First-run results (2026-06-12, project restored)
 
-| Scenario | Metric | agentmem | vs pgvector |
+| Scenario | Metric | dinomem | vs pgvector |
 |---|---|---|---|
-| S1 | C1.detected | ✅ Y | pgvector N/A — **AgentMem fills it** |
-| S1 | C1.resolved | ✅ Y (planner_wins blocked the executor) | pgvector N/A — **AgentMem fills it** |
+| S1 | C1.detected | ✅ Y | pgvector N/A — **DinoMem fills it** |
+| S1 | C1.resolved | ✅ Y (planner_wins blocked the executor) | pgvector N/A — **DinoMem fills it** |
 | S1 | C1.consistent | ✅ Y | both ✅ |
 | S2 | T1.bitemporal | ℹ️ Y (atTime accepted) | pgvector ℹ️ N |
 | S2 | T1.t0 / t1 | ❌ N / ❌ N — see finding | pgvector N/A |
@@ -71,7 +71,7 @@ these — especially (1).
 | S6 | P.*.correct | ⛔ blocked (Gemini quota) | pgvector N/A |
 | S7 | latency / cost | not run (quota + 1000-write cost) | pgvector ran |
 
-**The headline:** AgentMem **fills S1** (conflict detection + `planner_wins`
+**The headline:** DinoMem **fills S1** (conflict detection + `planner_wins`
 resolution) where the pgvector floor is N/A — the real, measured differentiation a
 raw vector store can't provide. S3 (scope) is passed by both, so it doesn't
 separate them; S4 is N/A for both (no replica API).
@@ -79,12 +79,12 @@ separate them; S4 is N/A for both (no replica API).
 ### Findings the run surfaced
 1. **S2 temporal gap.** `atTime` is accepted (bitemporal=Y) but `at_time=T0` and
    `=T1` both returned *both* contradicting facts. Under the default `ignore`
-   policy AgentMem doesn't supersede, so both stay valid and `atTime` doesn't
+   policy DinoMem doesn't supersede, so both stay valid and `atTime` doesn't
    disambiguate "what was true at T". *Caveat:* my adapter uses client-side write
    timestamps (the `/write` response returns only `writeId`, no `created_at`), so
    the T0/T1 points are approximate — a clean S2 needs server timestamps + a
    `timestamp_wins` variant. Recorded as a real gap pending that follow-up.
-2. **S4 untestable black-box.** No replica/sync API → N/A even for AgentMem.
+2. **S4 untestable black-box.** No replica/sync API → N/A even for DinoMem.
    *Actionable: expose a replica/vector-clock test hook.*
 3. **Operational fragility (the big one).** Conflict detection + extraction call
    **Gemini 2.5 Flash server-side**, and under quota they return **5xx, not graceful
@@ -106,6 +106,6 @@ separate them; S4 is N/A for both (no replica API).
 
 ## To run (once the project is restored)
 ```bash
-AGENTMEM_API_KEY=... .venv/bin/python -m agentmem_bench --sut agentmem --scenarios all
-# optional: AGENTMEM_BASE_URL to point at a self-hosted/local instance
+DINOMEM_API_KEY=... .venv/bin/python -m dinomem_bench --sut dinomem --scenarios all
+# optional: DINOMEM_BASE_URL to point at a self-hosted/local instance
 ```

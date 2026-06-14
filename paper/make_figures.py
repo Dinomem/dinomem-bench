@@ -2,7 +2,7 @@
 
   python paper/make_figures.py            # -> paper/figures/{capability_heatmap,latency}.png|pdf
 
-Reuses agentmem_bench.compare for the same merge/provenance logic as the matrix,
+Reuses dinomem_bench.compare for the same merge/provenance logic as the matrix,
 so figures and table never disagree. Requires matplotlib.
 """
 
@@ -14,9 +14,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from agentmem_bench import compare  # noqa: E402
+from dinomem_bench import compare  # noqa: E402
 
-SUT_ORDER = ["pgvector", "langmem", "mem0", "supermemory", "cognee", "zep", "agentmem"]
+SUT_ORDER = ["pgvector", "langmem", "mem0", "supermemory", "cognee", "zep", "dinomem"]
 # Correctness metrics in display order (S7 latency handled separately).
 METRIC_ROWS = [
     ("S1", "C1.detected", "S1 detect"),
@@ -60,7 +60,7 @@ def heatmap(chosen, suts, out):
     ax.set_xticks([c + 0.5 for c in range(len(suts))]); ax.set_xticklabels(suts, rotation=30, ha="right", fontsize=9)
     ax.set_yticks([r + 0.5 for r in range(len(METRIC_ROWS))]); ax.set_yticklabels([m[2] for m in METRIC_ROWS], fontsize=9)
     ax.set_xticks(range(len(suts) + 1), minor=True); ax.tick_params(length=0)
-    ax.set_title("Multi-agent memory capability matrix (agentmem-bench S1–S6)", fontsize=11, pad=10)
+    ax.set_title("Multi-agent memory capability matrix (dinomem-bench S1–S6)", fontsize=11, pad=10)
     legend = [Patch(facecolor=STATUS_COLOR["pass"], label="pass"),
               Patch(facecolor=STATUS_COLOR["fail"], label="fail"),
               Patch(facecolor=STATUS_COLOR["na"], label="N/A (no API)")]

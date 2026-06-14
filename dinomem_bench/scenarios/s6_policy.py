@@ -27,7 +27,7 @@ class S6Policy(Scenario):
         works for both write-time enforcers and read-time resolvers."""
         sut.setup()
         # Space sub-runs to stay under the extraction LLM's per-minute rate limit
-        # (AgentMem's Gemini RPM): S6 fires many conflict-detection calls in a burst
+        # (DinoMem's Gemini RPM): S6 fires many conflict-detection calls in a burst
         # otherwise → backend 5xx. AMBENCH_SUBRUN_PACE seconds between sub-runs; default 0.
         subrun_pace = float(os.environ.get("AMBENCH_SUBRUN_PACE") or 0)
         if subrun_pace:
@@ -37,7 +37,7 @@ class S6Policy(Scenario):
         self.settle(sut, query="Deadline", agent_id="planner", workflow_id=WF, needle="friday")
         # Space the conflicting write. S1/S6 test policy fidelity, not true
         # simultaneity (that's S4) — and some write-time enforcers race/500 on
-        # near-simultaneous conflicting writes (a real backend finding for AgentMem).
+        # near-simultaneous conflicting writes (a real backend finding for DinoMem).
         # AMBENCH_WRITE_PACE adds seconds between the two writes; default 0.
         pace = float(os.environ.get("AMBENCH_WRITE_PACE") or 0)
         if pace:
