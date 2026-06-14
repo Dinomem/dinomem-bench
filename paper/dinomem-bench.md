@@ -26,8 +26,12 @@ behind a uniform adapter interface, with an in-process reference implementation 
 validate the scenarios themselves. We report per-scenario, per-metric results — not
 a single score — and find the capability space is sharply non-uniform: contradiction
 detection and resolution policies are provided by exactly one system; bitemporal
-"what was true at T?" retrieval by exactly one (a different) system; CRDT convergence
-by *none*, because no shipping system exposes the necessary API to a black-box test;
+"what was true at T?" retrieval by exactly one (a different) system; concurrent-write
+CRDT convergence is *drivable in exactly one* system — DinoMem, which ships an
+op-based LWW-Register CvRDT engine (with property-tested, empirically order-independent
+convergence) behind a black-box replica/sync API, the only such surface among the
+systems under test, while every other system stays N/A on that axis for lack of a
+replica API (the live cross-system S4 run awaits a deployed instance);
 and a raw vector store matches the managed systems on every property that does not
 require coordination machinery. Beyond the grid, the act of running the benchmark
 surfaced reproducible operational failures (LLM-quota-coupled 5xx errors, silent
@@ -78,7 +82,10 @@ contributions:
 Our central empirical claim is deliberately anti-climactic: **there is no "best"
 multi-agent memory system.** Different systems provide disjoint coordination
 capabilities, several provide none beyond a vector store, and one important property
-(CRDT convergence) is currently unverifiable in *every* shipping product.
+(concurrent-write CRDT convergence) is *drivable in only one* shipping product:
+DinoMem exposes a black-box replica/sync API over a property-tested CvRDT engine,
+while every other system stays unverifiable on that axis for lack of any replica
+surface a convergence test can drive.
 
 ## 2. Related Work
 
@@ -213,14 +220,16 @@ The complete matrix (✅ pass · ❌ fail · — N/A · ℹ️ measurement):
 | S3 isolated | ✅ | ✅ | — | — | ✅* | ✅ | ✅ |
 | S3 team_visible | ✅ | ❌ | — | — | ❌* | ✅ | ✅ |
 | S3 cross_workflow | ✅ | ✅ | — | — | ✅* | ✅ | ✅ |
-| S4 converge/det/lossless | — | — | — | — | — | — | — |
+| S4 converge/det/lossless | — | — | — | — | — | — | —‡ |
 | S5 leakage_rate | 0% | 0% | — | —† | 0%* | 0% | 0% |
 | S6 policy×4 + surfaced | — | — | — | — | — | — | **✅** |
 | S7 write p50 (ms) | 307 | 1143 | 305 | 20965 | 2222 | 303 | 1005 |
 | S7 search p50 (ms) | 309 | 507 | 302 | 1919 | 1870 | 304 | 892 |
 
 <sub>\* Supermemory's scope cells are confounded (§7). † Cognee's zero-setup mode
-enforces no isolation (§7).</sub>
+enforces no isolation (§7). ‡ DinoMem is the only system whose S4 convergence is
+*drivable* (it ships a replica/sync API over a property-tested CvRDT engine); the cell
+stays — until a live cross-system run against a deployed instance is recorded (§6, §10).</sub>
 
 **Per-scenario analysis.**
 
@@ -238,9 +247,20 @@ enforces no isolation (§7).</sub>
   stores. The informative split is intra-tier: **verbatim stores (pgvector, LangMem,
   DinoMem) preserve a re-scoped fact; dedup/aggregating stores (Mem0, Supermemory)
   silently drop the scope change.**
-- **S4 (CRDT).** N/A for every shipping system: none exposes a replica/vector-clock
-  API drivable by a black-box convergence test. Only the reference implementation
-  passes. We treat this as a finding about the products, and a benchmark to-do (§11).
+- **S4 (CRDT).** N/A for every shipping system *except* DinoMem. DinoMem ships an
+  op-based LWW-Register CvRDT engine behind a black-box replica/sync API
+  (`replica_write` / `sync` / `state`), so it is the **only** system under test whose
+  convergence the black-box test can drive end-to-end; every other system stays N/A
+  for lack of a replica surface. The engine's convergence is **property-tested and
+  empirically order-independent** in the core (`agentmem/supabase/functions/api/lib/
+  crdt-merge.test.ts`, 8/8: order-independence across shuffles, the CvRDT laws —
+  commutativity, associativity, idempotence — no-lost-writes vs an independent
+  brute-force reference, partial out-of-order sync convergence, and a CRDT-vs-naive-LWW
+  ablation). This is a property-test suite, **not** a machine-checked proof. We have
+  not yet recorded a *live* cross-system S4 head-to-head against a deployed instance,
+  so we make no *measured* S4 benchmark-win claim: DinoMem's S4 cell is reported as
+  engine-property-tested + adapter-ready and flips to ✅ only once a live run lands in
+  `runs/` (never hand-edited). The reference implementation also passes (§3.5).
 - **S6 (policy).** DinoMem satisfies all four policies to spec; no other system
   ships conflict policies.
 - **S7 (latency).** A ~70× spread: LangMem/Zep/pgvector ≈ 300 ms; DinoMem/Mem0 ≈
@@ -286,8 +306,12 @@ the coordination axes above.
   tail estimates are coarse). Absolute latencies are environment- and tier-bound.
 - **Construct.** Several systems store no scope label, so scope is emulated in the
   adapter; S3/S5 therefore partly measure the adapter. We mark such cells.
-- **Coverage.** S4 is untestable as a black box for all hosted systems, so the CRDT
-  dimension is currently unmeasured rather than failed.
+- **Coverage.** S4 is untestable as a black box for every hosted system *except*
+  DinoMem, whose replica/sync API the convergence test can drive; for the others the
+  CRDT dimension is currently unmeasured rather than failed. For DinoMem, the engine's
+  convergence is property-tested in the core, but the cross-system *live* S4 run is
+  pending a deployed instance, so we report it as engine-tested + adapter-ready rather
+  than a measured head-to-head win.
 - **Free-tier artifacts.** Quotas, indexing lag, and search recall on free tiers may
   differ from paid deployments; we document the tier per system.
 - **Versioning.** Hosted backends can change server-side behavior we cannot pin; we
@@ -297,12 +321,22 @@ the coordination axes above.
 
 The authors develop **DinoMem**, one of the seven systems under test, and DinoMem
 attains the only passes on S1 and S6 (its *shipped* conflict policies —
-`planner_wins` / `timestamp_wins` / `human_in_loop`). We make no convergence claim
-for it: DinoMem's CRDT-based convergence is a V3 roadmap item (its vector clocks tick
-internally, but the property is not yet exposed, benchmarked, or guaranteed), so on S4
-DinoMem is **untestable like everyone else**, not a passing system. We mitigate as
+`planner_wins` / `timestamp_wins` / `human_in_loop`), and is also the only system that
+exposes a drivable replica/sync API on S4. Because we both build and benchmark the one
+S4-capable system, that result demands the most scrutiny, so we state its limits
+precisely. DinoMem ships an op-based LWW-Register CvRDT engine whose convergence is
+**property-tested and empirically order-independent** in the core (order-independence
+across shuffles, the CvRDT laws, no-lost-writes vs an independent brute-force reference,
+partial out-of-order sync convergence, and a CRDT-vs-naive-LWW ablation) — a
+property-test suite, **not** a machine-checked proof, so we claim *property-tested
+convergence*, not *proven* or *guaranteed*. We have **not** yet run a live cross-system
+S4 head-to-head against a deployed instance, so we claim no *measured* S4 benchmark
+win: DinoMem's S4 cell is reported as engine-property-tested + adapter-ready and flips
+to a measured pass only when a live run is recorded. The honest asymmetry is that
+DinoMem is uniquely *drivable* on S4 (it alone ships the replica surface), while every
+other system is N/A there for lack of one. We mitigate as
 follows: (i) this statement is prominent; (ii) we report DinoMem's **gap** (S2) and
-the dimension on which it is **untestable like everyone else** (S4) in the same table; (iii) we document an
+that its S4 result is engine-tested-but-not-yet-a-live-measured-win in the same table; (iii) we document an
 operational failure in our own system (§7); (iv) every scenario is a public,
 deterministic script and every result links to a raw trial log, so any reader can
 reproduce or refute; (v) adapters are open to PRs from competing vendors, who may
@@ -312,8 +346,11 @@ contribute or correct their own. We do not report a single aggregate score.
 
 dinomem-bench reframes memory evaluation from single-agent recall to multi-agent
 coordination, and finds the capability landscape sharply differentiated and, on one
-axis (CRDT), uniformly unverifiable in shipping products. v0.2 will: add a
-replica/vector-clock test hook so S4 can score systems that expose one; tighten
+axis (CRDT convergence), drivable in only one shipping product — DinoMem, which alone
+exposes a replica/sync API over a property-tested CvRDT engine, while the rest remain
+unverifiable for lack of any replica surface. The S4 harness already drives that API;
+v0.2 will: record the live cross-system S4 head-to-head against a deployed instance
+(so the grid cell can flip from engine-tested to measured); tighten
 per-operation cost instrumentation; increase N with seeds for confidence intervals;
 and add an adversarial scenario (prompt injection via memory writes). We invite the
 community to run the harness, contribute adapters, and challenge the methodology.

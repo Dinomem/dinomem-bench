@@ -56,8 +56,8 @@ for the methodology.
 **v1 scope.** Bench v1 ships **S1–S7**, including **S4 (CRDT convergence)**.
 DinoMem's CRDT **V3** now ships a real convergence engine + a black-box replica/sync
 API (`POST /v1/crdt/replicas/{rid}/write`, `.../sync`, `GET .../state`), so the
-harness drives S4 against DinoMem end-to-end and its convergence is independently
-proven by the core's CvRDT property suite
+harness drives S4 against DinoMem end-to-end and its convergence is property-tested
+and empirically order-independent by the core's CvRDT property suite
 ([`agentmem/supabase/functions/api/lib/crdt-merge.test.ts`](../agentmem/supabase/functions/api/lib/crdt-merge.test.ts)).
 **DinoMem is the only system under test with a drivable replica/sync API** — the
 other real systems remain structurally **N/A** on S4, and the `FakeSUT` reference

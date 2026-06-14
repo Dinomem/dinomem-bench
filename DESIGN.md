@@ -17,8 +17,8 @@ python3 -m dinomem_bench --sut fake --scenarios all
 **V3** now ships a real convergence engine + a black-box replica/sync API
 (`POST /v1/crdt/replicas/{rid}/write`, `.../sync`, `GET .../state`), so S4 is no
 longer gated/roadmap for DinoMem: the harness drives it end-to-end through the
-public API, and the convergence is independently proven by the core's CvRDT
-property suite
+public API, and the convergence is property-tested and empirically order-independent
+by the core's CvRDT property suite
 ([`agentmem/supabase/functions/api/lib/crdt-merge.test.ts`](../agentmem/supabase/functions/api/lib/crdt-merge.test.ts):
 order-independence, the CvRDT laws, no-lost-writes vs an independent brute force,
 partial-sync convergence, and an LWW ablation). **DinoMem is the only system under

@@ -104,14 +104,18 @@ interesting split is *within* the floor tier: **verbatim stores (pgvector, langm
 DinoMem) pass "team-visible"; dedup/aggregating stores (Mem0, Supermemory) fail
 it** — re-writing a fact at a wider scope is silently swallowed by content dedup.
 
-**S4 — CRDT: everybody fails, for the same reason.** This was meant to be the
-headline. It isn't — because **no system, including DinoMem, exposes a replica /
-vector-clock API** you can drive to test out-of-order convergence as a black box.
-DinoMem ticks vector clocks internally, but you can't reach them through the public
-API. So S4 is N/A across the board (only the in-process reference passes). Honest
-takeaway: *the convergence claim every CRDT-flavored memory system makes is
-currently unverifiable from the outside.* That's a gap in the **products**, and a
-to-do for v0.2 of the benchmark.
+**S4 — CRDT: only DinoMem is even drivable.** This was meant to be the headline,
+and on the *capability* axis it splits the field cleanly: **only DinoMem exposes a
+replica/sync API** you can drive to test out-of-order convergence as a black box. It
+ships an op-based LWW-Register CvRDT engine, and the engine's convergence is
+property-tested and empirically order-independent in the core (order-independence
+across shuffles, the CvRDT laws, no-lost-writes vs a brute-force reference,
+partial-sync convergence, a CRDT-vs-naive-LWW ablation) — a property-test suite, not a
+machine-checked proof. Every other system stays N/A here: none reaches its vector
+clocks through a public replica API. Honest takeaway: *the convergence claim every
+other CRDT-flavored memory system makes is still unverifiable from the outside, and
+even for DinoMem the live cross-system S4 head-to-head is pending a deployed instance* —
+so we report it as engine-tested + adapter-ready, not yet a measured benchmark win.
 
 **S6 — policy fidelity: only DinoMem.** All four policies behaved to spec:
 `ignore` keeps both, `timestamp_wins` supersedes to the latest, `planner_wins`
@@ -148,7 +152,9 @@ The scenario grid is half the story. The other half is what broke:
 
 - **Single runs / small N** on most cells, and **free-tier accounts** with their
   own quirks (quotas, indexing lag). Absolute latencies are environment-bound.
-- **S4 is untestable as a black box** for every hosted system — including ours.
+- **S4 is untestable as a black box** for every hosted system *except* DinoMem,
+  which now ships a replica/sync API over a property-tested CvRDT engine; the live
+  cross-system S4 head-to-head is still pending a deployed instance.
 - **Scope is emulated client-side** for several systems (they store no scope label),
   so S3/S5 partly measure our adapter, not just the system.
 - We **don't** report a single "winner" score. We won't.
@@ -162,10 +168,15 @@ one-dimensional:
 - Need **"what was true at T?"**? Only **Zep** did it.
 - Need **fast, cheap, faithful retrieval at modest scale**? A **raw pgvector
   table** (or LangMem) is hard to beat — and a lot of "memory systems" don't beat it.
-- Need **CRDT convergence**? **No shipping product** — DinoMem included — lets you
-  verify it today; DinoMem's CRDT-based convergence is a V3 roadmap item (not yet
-  benchmarked), so treat any "convergence guarantee" claim, ours or anyone else's, as
-  unverified for now.
+- Need **concurrent-write CRDT convergence**? Of the systems we tested, only
+  **DinoMem** lets you verify it: it ships an op-based LWW-Register CvRDT engine
+  behind a black-box replica/sync API, and the engine's convergence is property-tested
+  and empirically order-independent in the core (order-independence across shuffles,
+  the CvRDT laws, no-lost-writes vs a brute-force reference, partial-sync convergence,
+  a CRDT-vs-naive-LWW ablation). That's a property-test suite, not a machine-checked
+  proof — so it's *property-tested convergence*, not a "guarantee" — and we haven't yet
+  recorded a *live* cross-system S4 run, so we claim no measured head-to-head win there
+  yet. Every other system stays unverifiable on this axis for lack of a replica API.
 
 If you take one thing from this: stop asking for the best memory system, and start
 asking which coordination property your multi-agent app actually needs — then check

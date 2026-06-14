@@ -47,8 +47,12 @@ are in arXiv's standard TeX Live.
 > not a single score — and find the capability space sharply non-uniform:
 > contradiction detection/resolution and conflict policies are provided by exactly
 > one system; bitemporal "what was true at T?" retrieval by exactly one other system;
-> CRDT convergence by none, because no shipping system exposes a replica API to a
-> black-box test; and a raw vector store matches the managed systems on every
+> concurrent-write CRDT convergence is drivable in exactly one system — DinoMem, which
+> ships an op-based LWW-Register CvRDT engine (with property-tested, empirically
+> order-independent convergence) behind a black-box replica/sync API, the only such
+> surface among the systems under test, while every other system stays N/A on that axis
+> for lack of a replica API (the live cross-system S4 run awaits a deployed instance);
+> and a raw vector store matches the managed systems on every
 > property that does not require coordination machinery. Beyond the grid, running the
 > benchmark surfaced reproducible operational failures. We release the harness,
 > scenarios, and complete run logs, and disclose prominently that the benchmark's

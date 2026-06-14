@@ -151,7 +151,7 @@ def render_md(cases: list[dict]) -> str:
         "",
         "Deterministic assertion verdict vs a hand-checked human verdict. `agree`",
         "is `true` on every row — evidence the assertions match human judgement,",
-        "including where DinoMem loses (S2) and where every system is N/A (S4).",
+        "including where DinoMem loses (S2) and where a store with no replica API is N/A (S4).",
         "Regenerate with `python3 human_validation/validate.py`.",
         "",
         "| Scenario | SUT | Metric | System returned | Assertion | Human says | Agree |",
