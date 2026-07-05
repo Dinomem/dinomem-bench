@@ -22,8 +22,13 @@ class S2Temporal(Scenario):
 
     def run(self, sut: SUTAdapter) -> list[MetricResult]:
         out: list[MetricResult] = []
-        r1 = sut.write("Project status is green.", agent_id="lead", scope="team", workflow_id=WF)
-        r2 = sut.write("Project status is red.", agent_id="lead", scope="team", workflow_id=WF)
+        # DinoMem P1 bi-temporal: same factKey on both writes causes the second
+        # write to close the first's validity window, making at_time=T0 return only
+        # "green" and at_time=T1 return only "red". Without factKey, both facts
+        # stay visible at all times under the default 'ignore' policy.
+        fk = "project_status" if sut.supports(Capability.FACT_KEY) else None
+        r1 = sut.write("Project status is green.", agent_id="lead", scope="team", workflow_id=WF, fact_key=fk)
+        r2 = sut.write("Project status is red.", agent_id="lead", scope="team", workflow_id=WF, fact_key=fk)
 
         # T1.bitemporal — does the system support at_time at all? This is a
         # descriptive capability (DESIGN: "Y/N — many do not"), not a correctness

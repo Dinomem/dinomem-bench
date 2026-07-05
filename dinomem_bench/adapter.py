@@ -52,6 +52,7 @@ class SUTAdapter(abc.ABC):
         scope: str = "team",
         role: str | None = None,
         workflow_id: str | None = None,
+        fact_key: str | None = None,
     ) -> WriteResult: ...
 
     @abc.abstractmethod

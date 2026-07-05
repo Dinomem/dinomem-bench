@@ -12,7 +12,7 @@
 > [`CONTRIBUTING.md`](../CONTRIBUTING.md)). DinoMem is one SUT here, not the
 > subject of this repo.
 
-Generated from 34 run(s) in `runs/`. Per (SUT, scenario) the most
+Generated from 36 run(s) in `runs/`. Per (SUT, scenario) the most
 recent run with real metrics is used (provenance at the bottom). FakeSUT is
 the in-process reference, not a system under test.
 
@@ -31,7 +31,7 @@ the in-process reference, not a system under test.
 | S1 | s1_contradictory.run | · | · | · | · | · | · | 💥 crash | · | · |
 | S2 | T1.bitemporal | ℹ️ N | ℹ️ N | ℹ️ Y | ℹ️ N | ℹ️ N | ℹ️ N | ℹ️ Y | ℹ️ Y | ℹ️ Y |
 | S2 | T1.t0 | — N/A | — N/A | ✅ Y | — N/A | — N/A | — N/A | ✅ Y | ✅ Y | ❌ N |
-| S2 | T1.t1 | — N/A | — N/A | ✅ Y | — N/A | — N/A | — N/A | ❌ N | ✅ Y | ❌ N |
+| S2 | T1.t1 | — N/A | — N/A | ✅ Y | — N/A | — N/A | — N/A | ✅ Y | ✅ Y | ❌ N |
 | S3 | S3.isolated | ✅ Y | ✅ Y | — N/A | — N/A | ✅ Y | ✅ Y | ✅ Y | ✅ Y | ✅ Y |
 | S3 | S3.team_visible | ✅ Y | ❌ N | — N/A | — N/A | ❌ N | ✅ Y | ✅ Y | ✅ Y | ✅ Y |
 | S3 | S3.cross_workflow | ✅ Y | ✅ Y | — N/A | — N/A | ✅ Y | ✅ Y | ✅ Y | ✅ Y | ✅ Y |
@@ -45,16 +45,16 @@ the in-process reference, not a system under test.
 | S6 | P.planner_wins.correct | — N/A | — N/A | — N/A | — N/A | — N/A | — N/A | · | ✅ Y | ✅ Y |
 | S6 | P.human_in_loop.correct | — N/A | — N/A | — N/A | — N/A | — N/A | — N/A | · | ✅ Y | ✅ Y |
 | S6 | P.human_in_loop.surfaced | — N/A | — N/A | — N/A | — N/A | — N/A | — N/A | · | ✅ Y | ✅ Y |
-| S7 | Op.write_p50_ms | ℹ️ 469.936 | ℹ️ 1082.409 | ℹ️ 299.544 | ℹ️ 20965.427 | ℹ️ 2221.558 | ℹ️ 270.821 | ℹ️ 1043.21 | ℹ️ 0.038 | ℹ️ 1004.919 |
-| S7 | Op.write_p95_ms | ℹ️ 725.338 | ℹ️ 1498.432 | ℹ️ 405.428 | ℹ️ 28167.986 | ℹ️ 7172.466 | ℹ️ 443.994 | ℹ️ 1215.411 | ℹ️ 0.11 | ℹ️ 1084.248 |
-| S7 | Op.search_p50_ms | ℹ️ 454.124 | ℹ️ 504.534 | ℹ️ 312.274 | ℹ️ 1918.594 | ℹ️ 1869.841 | ℹ️ 307.87 | ℹ️ 1017.812 | ℹ️ 0.28 | ℹ️ 891.796 |
-| S7 | Op.search_p95_ms | ℹ️ 618.059 | ℹ️ 745.254 | ℹ️ 413.591 | ℹ️ 1926.687 | ℹ️ 9377.719 | ℹ️ 478.147 | ℹ️ 1138.973 | ℹ️ 0.535 | ℹ️ 1116.618 |
+| S7 | Op.write_p50_ms | ℹ️ 469.936 | ℹ️ 1082.409 | ℹ️ 299.544 | ℹ️ 20965.427 | ℹ️ 2221.558 | ℹ️ 270.821 | ℹ️ 1088.654 | ℹ️ 0.038 | ℹ️ 1004.919 |
+| S7 | Op.write_p95_ms | ℹ️ 725.338 | ℹ️ 1498.432 | ℹ️ 405.428 | ℹ️ 28167.986 | ℹ️ 7172.466 | ℹ️ 443.994 | ℹ️ 1240.451 | ℹ️ 0.11 | ℹ️ 1084.248 |
+| S7 | Op.search_p50_ms | ℹ️ 454.124 | ℹ️ 504.534 | ℹ️ 312.274 | ℹ️ 1918.594 | ℹ️ 1869.841 | ℹ️ 307.87 | ℹ️ 1025.067 | ℹ️ 0.28 | ℹ️ 891.796 |
+| S7 | Op.search_p95_ms | ℹ️ 618.059 | ℹ️ 745.254 | ℹ️ 413.591 | ℹ️ 1926.687 | ℹ️ 9377.719 | ℹ️ 478.147 | ℹ️ 1278.665 | ℹ️ 0.535 | ℹ️ 1116.618 |
 | S7 | Op.write_$_per_1k | ℹ️ 0.0001 | ℹ️ N/A | ℹ️ N/A | ℹ️ N/A | ℹ️ N/A | ℹ️ N/A | ℹ️ N/A | ℹ️ 0.0 | ℹ️ N/A |
 | S7 | Op.search_$_per_1k | ℹ️ 0.0001 | ℹ️ N/A | ℹ️ N/A | ℹ️ N/A | ℹ️ N/A | ℹ️ N/A | ℹ️ N/A | ℹ️ 0.0 | ℹ️ N/A |
-| S7 | Op.write_mean_ms | ℹ️ 518.805 | ℹ️ 1119.504 | ℹ️ 322.1 | · | · | ℹ️ 319.55 | ℹ️ 1055.487 | · | · |
-| S7 | Op.write_p99_ms | ℹ️ 1425.201 | ℹ️ 1661.029 | ℹ️ 767.781 | · | · | ℹ️ 941.526 | ℹ️ 1364.58 | · | · |
-| S7 | Op.search_mean_ms | ℹ️ 484.166 | ℹ️ 554.355 | ℹ️ 338.94 | · | · | ℹ️ 329.69 | ℹ️ 1018.809 | · | · |
-| S7 | Op.search_p99_ms | ℹ️ 820.359 | ℹ️ 1290.972 | ℹ️ 427.432 | · | · | ℹ️ 621.956 | ℹ️ 1292.026 | · | · |
+| S7 | Op.write_mean_ms | ℹ️ 518.805 | ℹ️ 1119.504 | ℹ️ 322.1 | · | · | ℹ️ 319.55 | ℹ️ 1085.628 | · | · |
+| S7 | Op.write_p99_ms | ℹ️ 1425.201 | ℹ️ 1661.029 | ℹ️ 767.781 | · | · | ℹ️ 941.526 | ℹ️ 1432.63 | · | · |
+| S7 | Op.search_mean_ms | ℹ️ 484.166 | ℹ️ 554.355 | ℹ️ 338.94 | · | · | ℹ️ 329.69 | ℹ️ 1036.61 | · | · |
+| S7 | Op.search_p99_ms | ℹ️ 820.359 | ℹ️ 1290.972 | ℹ️ 427.432 | · | · | ℹ️ 621.956 | ℹ️ 1339.979 | · | · |
 
 ## Totals (selected results)
 
@@ -66,19 +66,17 @@ the in-process reference, not a system under test.
 | cognee | 1 | 0 | 16 | 0 | 7 |
 | supermemory | 4 | 1 | 12 | 0 | 7 |
 | langmem | 5 | 0 | 12 | 0 | 11 |
-| dinomem | 8 | 1 | 0 | 1 | 12 |
+| dinomem | 9 | 0 | 0 | 1 | 12 |
 | fake | 17 | 0 | 0 | 0 | 7 |
 | agentmem | 12 | 2 | 3 | 0 | 7 |
 
 ## Where DinoMem loses / is N/A
 
-DinoMem is reported like every other system under test. Across the selected results it **fails 1**, **crashes on 1**, and is **N/A on 0** metric cell(s). Every one is listed below (passes/operational `info` are in the scorecard above; this section is only the non-wins):
+DinoMem is reported like every other system under test. Across the selected results it **fails 0**, **crashes on 1**, and is **N/A on 0** metric cell(s). Every one is listed below (passes/operational `info` are in the scorecard above; this section is only the non-wins):
 
 ### ❌ Fails (wrong answer vs the scenario assertion)
 
-| Scenario | Metric | DinoMem value | Note |
-|---|---|---|---|
-| S2 | T1.t1 | ❌ N |  |
+_None — DinoMem has no `fail` cells in these results._
 
 ### 💥 Crashes (raised / 5xx / timeout, after the one re-run)
 
@@ -121,11 +119,11 @@ DinoMem was wired into **Fincil** (a 3-persona AI financial council app: Miser /
 | cognee | S6 | `2026-06-13-053651` |
 | cognee | S7 | `2026-06-13-053651` |
 | dinomem | S1 | `2026-07-05-162040` |
-| dinomem | S2 | `2026-07-05-161904` |
+| dinomem | S2 | `2026-07-05-164423` |
 | dinomem | S3 | `2026-07-05-162414` |
 | dinomem | S4 | `2026-07-05-161701` |
 | dinomem | S5 | `2026-07-05-162414` |
-| dinomem | S7 | `2026-07-05-161902` |
+| dinomem | S7 | `2026-07-05-164446` |
 | fake | S1 | `2026-06-12-132140` |
 | fake | S2 | `2026-06-12-132140` |
 | fake | S3 | `2026-06-12-132140` |

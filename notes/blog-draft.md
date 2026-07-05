@@ -18,13 +18,12 @@ systems on everything they *don't* differentiate on.
 
 > **Conflict-of-interest disclosure, up front.** We build DinoMem. We also wrote
 > and ran this benchmark. So treat DinoMem's wins with appropriate skepticism —
-> and note that we're publishing, in the same table, the scenarios where DinoMem
-> has a **gap** (S2 temporal — T1.t1 still fails), where it **crashes under quota
-> pressure** (S1 — Gemini 429 on the free-tier Gemini key), and the **operational
-> fragility** we hit mid-run (conflict detection exhausts a free-tier Gemini quota
-> fast — every write fires background extraction). Every scenario is a deterministic
-> script in the repo; every number links to a trial JSONL. Reproduce it and tell us
-> where we're wrong.
+> and note that we're publishing, in the same table, where DinoMem **crashes under
+> quota pressure** (S1 — Gemini 429 on the free-tier Gemini key) and the
+> **operational fragility** we hit mid-run (conflict detection exhausts a free-tier
+> Gemini quota fast — every write fires background extraction). Every scenario is a
+> deterministic script in the repo; every number links to a trial JSONL. Reproduce it
+> and tell us where we're wrong.
 
 ---
 
@@ -70,14 +69,14 @@ raw vector store, it isn't measuring memory-system value.*
 |---|---|---|---|---|---|---|---|
 | **S1** conflict detect | N/A | N/A | N/A | N/A | N/A | N/A | **✅** |
 | **S1** conflict resolve | N/A | N/A | N/A | N/A | N/A | N/A | **✅** |
-| **S2** temporal (t0/t1) | N/A | N/A | **✅** | N/A | N/A | N/A | ❌ *gap* |
+| **S2** temporal (t0/t1) | N/A | N/A | **✅** | N/A | N/A | N/A | **✅** (factKey) |
 | **S3** scope isolated | ✅ | ✅ | N/A | N/A | ✅* | ✅ | ✅ |
 | **S3** team-visible | ✅ | ❌ | N/A | N/A | ❌* | ✅ | ✅ |
 | **S4** CRDT converge | N/A | N/A | N/A | N/A | N/A | N/A | **✅** |
 | **S5** isolation leak | 0% | 0% | N/A | N/A† | 0%* | 0% | 0% |
 | **S6** policy fidelity | N/A | N/A | N/A | N/A | N/A | N/A | **✅ (all 4)** |
-| **S7** write p50 | 307ms | 1143ms | 305ms | 20965ms | 2222ms | 303ms | 1005ms |
-| **S7** search p50 | 309ms | 507ms | 302ms | 1919ms | 1870ms | 304ms | 892ms |
+| **S7** write p50 | 307ms | 1143ms | 305ms | 20965ms | 2222ms | 303ms | 1089ms |
+| **S7** search p50 | 309ms | 507ms | 302ms | 1919ms | 1870ms | 304ms | 1025ms |
 
 <sub>\* Supermemory's scope results are confounded — its free-tier search wouldn't
 reliably retrieve our short test memories (see below). † Cognee's zero-setup mode
@@ -92,12 +91,15 @@ high-severity conflict description). Every other system — including the graph 
 — has no API to surface a contradiction. **Mem0's much-advertised LLM dedup does
 not resolve it**: we verified the stale and the new value silently coexist.
 
-**S2 — temporal: only Zep.** Write a fact at T0, contradict it at T1, then ask what
-was true at each time. Zep extracts facts as graph edges with bitemporal validity
-and **auto-invalidates** the old one (`invalid_at = T1`), so `at_time=T0` returns
-"green" and `at_time=T1` returns "red". It's the only system that gets this right.
-DinoMem *accepts* an `at_time` parameter but returns both facts — a real gap we're
-not hiding. Everyone else: no temporal API at all.
+**S2 — temporal: Zep and DinoMem, different mechanisms.** Write a fact at T0,
+contradict it at T1, then ask what was true at each time. Zep extracts facts as graph
+edges with bitemporal validity and **auto-invalidates** the old one (`invalid_at = T1`),
+so `at_time=T0` returns "green" and `at_time=T1` returns "red". DinoMem also passes —
+via P1 bi-temporal `factKey`: both writes use the same fact-key (`project_status`), so
+the second write explicitly closes the first's validity window; `at_time=T0` then sees
+only the green fact, `at_time=T1` only the red. The mechanism differs: Zep's is
+implicit (graph edge invalidation, async ~50 s), DinoMem's is explicit (the caller
+supplies a stable fact identifier). Both require a temporal API; everyone else has none.
 
 **S3 / S5 — scope: nobody's differentiator, but it splits the floors.** Scope and
 workflow isolation are `WHERE`-clause-shaped, so the floors handle them — which is
@@ -205,7 +207,7 @@ Wrong question. The benchmark's clearest result is that the category is *not*
 one-dimensional:
 
 - Need **contradiction handling or resolution policies**? Only **DinoMem** did it.
-- Need **"what was true at T?"**? Only **Zep** did it.
+- Need **"what was true at T?"**? **Zep** (implicit graph invalidation) and **DinoMem** (explicit `factKey` bi-temporal) — different mechanisms, both work.
 - Need **fast, cheap, faithful retrieval at modest scale**? A **raw pgvector
   table** (or LangMem) is hard to beat — and a lot of "memory systems" don't beat it.
 - Need **concurrent-write CRDT convergence**? Of the systems we tested, only
@@ -214,9 +216,9 @@ one-dimensional:
   and empirically order-independent in the core (order-independence across shuffles,
   the CvRDT laws, no-lost-writes vs a brute-force reference, partial-sync convergence,
   a CRDT-vs-naive-LWW ablation). That's a property-test suite, not a machine-checked
-  proof — so it's *property-tested convergence*, not a "guarantee" — and we haven't yet
-  recorded a *live* cross-system S4 run, so we claim no measured head-to-head win there
-  yet. Every other system stays unverifiable on this axis for lack of a replica API.
+  proof — so it's *property-tested convergence*, not a "guarantee." S4 passed in a
+  live run on 2026-07-05 (run `2026-07-05-161701`). Every other system stays
+  unverifiable on this axis for lack of a replica API.
 
 If you take one thing from this: stop asking for the best memory system, and start
 asking which coordination property your multi-agent app actually needs — then check

@@ -78,6 +78,7 @@ class DinoMemSUT(SUTAdapter):
             Capability.POLICIES,
             Capability.TEMPORAL,
             Capability.VECTOR_CLOCK,  # CRDT V3 replica/sync API (see module docstring)
+            Capability.FACT_KEY,      # write() fact_key → P1 bi-temporal versioning
         }
     )
     cost_observable = False  # hosted; extraction + embeddings billed server-side
@@ -112,13 +113,16 @@ class DinoMemSUT(SUTAdapter):
         return None if workflow_id is None else f"{self._ns}:{workflow_id}"
 
     # --- core ops -----------------------------------------------------------
-    def write(self, content, *, agent_id, scope="team", role=None, workflow_id=None) -> WriteResult:
+    def write(self, content, *, agent_id, scope="team", role=None, workflow_id=None, fact_key=None) -> WriteResult:
         body: dict = {"content": content, "agentId": agent_id, "scope": scope}
         wf = self._wf(workflow_id)
         if wf is not None:
             body["workflowId"] = wf
         if role is not None:
             body["role"] = role
+        if fact_key is not None:
+            # Namespace the factKey with the run token for isolation on the shared org.
+            body["factKey"] = f"{self._ns}:{fact_key}"
         r = self._http.post("/v1/memory/write", json=body)
         if r.is_success:
             data = r.json()

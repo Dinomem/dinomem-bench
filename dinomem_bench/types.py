@@ -31,6 +31,7 @@ class Capability:
     POLICIES = "policies"        # set_policy() + policy-aware reads
     TEMPORAL = "temporal"        # at_time= bitemporal queries (S2)
     VECTOR_CLOCK = "vector_clock"  # replica/CRDT API for S4
+    FACT_KEY = "fact_key"        # write() accepts fact_key for P1 bi-temporal versioning
 
 
 # --- result objects ---------------------------------------------------------

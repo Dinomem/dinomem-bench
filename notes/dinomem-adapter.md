@@ -336,3 +336,42 @@ Running while S1 was attempted. Results pending — will be captured in `runs/` 
 
 - `replica_write()` now creates a backing `/v1/memory/write` first and passes its `writeId` as `evidenceId` (provenance enforcement, FR-P0-3).
 - Module docstring updated to document the `evidenceId` requirement.
+
+---
+
+## Follow-up run (2026-07-05, session 2)
+
+### S2 — ✅ FIXED via factKey (P1 bi-temporal)
+
+**Fix**: Updated `s2_temporal.py` to pass `fact_key="project_status"` on both writes when the SUT supports `Capability.FACT_KEY`. Under P1 bi-temporal semantics, writing to the same factKey always closes the prior write's validity window — regardless of conflict policy. atTime queries then correctly isolate each fact to its validity window.
+
+Run `2026-07-05-164423`:
+- T1.t0 → ✅
+- T1.t1 → ✅ (previously ❌)
+
+**Mechanism**: DinoMem's write endpoint checks `if (body.factKey)` BEFORE the policy check, so factKey supersession is policy-independent. The test uses factKey only when `Capability.FACT_KEY` is in the SUT's capabilities frozenset — other SUTs (FakeSUT, pgvector) get None and are unaffected.
+
+**FakeSUT**: Added `fact_key=None` to `write()` signature for API compatibility. FakeSUT already supersedes by same entity+agent heuristic, so the parameter is a no-op there.
+
+### S7 — ✅ Confirmed at 300w/150s (run `2026-07-05-164446`)
+
+| Metric | 150w/75s | 300w/150s |
+|---|---|---|
+| write p50 | 1043ms | 1089ms |
+| write p95 | ~1240ms | 1240ms |
+| write p99 | ~1430ms | 1433ms |
+| search p50 | 1018ms | 1025ms |
+| search p95 | ~1280ms | 1279ms |
+| search p99 | ~1340ms | 1340ms |
+
+Numbers are stable across N. Background Gemini extraction did not cause throttling at 300 writes (S7 does not call `/v1/memory/conflicts` foreground; only S1/S6 do).
+
+### Updated summary (all runs through 2026-07-05 session 2)
+
+| Scenario | Metric | Status |
+|---|---|---|
+| S4 | converge / deterministic / lossless | ✅ ×3 |
+| S2 | T1.t0 / T1.t1 | ✅ ✅ |
+| S3/S5 | all | ✅ |
+| S7 | latency (300w/150s) | ℹ️ confirmed |
+| S1/S6 | all | ⛔ quota |

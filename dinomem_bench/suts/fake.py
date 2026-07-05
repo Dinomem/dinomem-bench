@@ -103,7 +103,7 @@ class FakeSUT(SUTAdapter):
 
     # --- core ops -----------------------------------------------------------
     def write(
-        self, content, *, agent_id, scope="team", role=None, workflow_id=None
+        self, content, *, agent_id, scope="team", role=None, workflow_id=None, fact_key=None
     ) -> WriteResult:
         entity, value = parse_entity(content)
         ts = self._now()
