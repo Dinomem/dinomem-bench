@@ -12,6 +12,9 @@ Capabilities mapped from the real API:
   - TEMPORAL   : search atTime
   - VECTOR_CLOCK : CRDT V3 ships a black-box replica/sync API
                  (POST /v1/crdt/replicas/{rid}/write, POST .../sync, GET .../state).
+                 Each write requires an evidenceId (UUID of an existing memory_event
+                 in this org, FR-P0-3 provenance requirement) — the adapter creates
+                 a backing /v1/memory/write first and uses its writeId automatically.
                  The op log is durable + org-scoped and a replica's state is the
                  pure CvRDT merge of the ops it knows; convergence is property-
                  tested in the core
@@ -224,8 +227,23 @@ class DinoMemSUT(SUTAdapter):
         # assigns the vector clock itself (increments node=replica_id), so the
         # scenario's hint `vclock` is intentionally not forwarded — the engine is
         # the source of truth for causality.
+        #
+        # The CRDT write API (FR-P0-3) requires an evidenceId — a UUID referencing
+        # an existing memory event in this org. We create a backing memory write
+        # first and use its writeId as the provenance reference. The backing write
+        # goes into the same workflow namespace as the CRDT op.
         key, value = parse_entity(content)
-        body = {"key": self._key(key, workflow_id), "value": value, "agentId": agent_id}
+        wf_body: dict = {"content": content, "agentId": agent_id, "scope": "team"}
+        wf = self._wf(workflow_id)
+        if wf is not None:
+            wf_body["workflowId"] = wf
+        backing = self._http.post("/v1/memory/write", json=wf_body)
+        if not backing.is_success:
+            _raise(backing)
+        evidence_id = str(backing.json().get("writeId", ""))
+        if not evidence_id:
+            raise RuntimeError("replica_write: backing /write did not return a writeId")
+        body = {"key": self._key(key, workflow_id), "value": value, "agentId": agent_id, "evidenceId": evidence_id}
         r = self._http.post(f"/v1/crdt/replicas/{self._rid(replica)}/write", json=body)
         if not r.is_success:
             _raise(r)

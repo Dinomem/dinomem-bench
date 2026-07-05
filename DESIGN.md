@@ -369,6 +369,20 @@ Not a success criterion: DinoMem winning every metric. We expect to lose some (e
 
 ## 13. Changelog
 
+- **2026-07-05** — DinoMem hosted endpoint is **fully live** (Supabase project
+  restored; no longer paused free-tier). Fincil app-level dogfood run completed
+  (`/mnt/308E51BA8E517974/fincil-remastered/notes/dinomem-test/`): S1 conflict
+  detection + `planner_wins` resolution confirmed on live traffic; P1 factKey
+  bi-temporal versioning confirmed structural; P2 immutable receipts confirmed (8
+  receipts / 3 debates; `reader_agent` = search `agentId`). S4 (CRDT V3) adapter
+  is ready and driving the deployed endpoint — first live bench run pending (the
+  committed `results/COMPARISON.md` N/A cells flip to ✅ once that run is recorded).
+  **Key operational finding**: `factKeyPrefix` does **not** filter on the live
+  endpoint — `workflowId` is the only reliable per-user isolation primitive. S7
+  search p50 (891ms) is without `rerank:true`; with rerank enabled expect 2.5–6.3s
+  per search call (measured in the Fincil dogfood). S2 temporal gap narrowed but not
+  closed: factKey supersession (P1) works; `atTime` returning a single fact per
+  validity window still needs a `timestamp_wins`-policy repro.
 - **2026-06-14** — S4 (CRDT convergence) is now live for DinoMem. CRDT V3 ships a
   real op-based LWW-Register CvRDT engine + a black-box replica/sync API; the
   DinoMem adapter advertises `VECTOR_CLOCK` and drives it, and S4 was hardened to

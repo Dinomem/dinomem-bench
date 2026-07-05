@@ -193,18 +193,24 @@ def _render_home_losses(chosen, suts, home: str = HOME_SUT) -> list[str]:
                 lines.append(f"| {scn} | {metric} | {MARK.get(status, '')} {value} | {note} |")
         lines.append("")
     lines.append(
-        "_Reading this honestly: S2 temporal (`T1.t0`/`T1.t1`) is a real **failure** — "
-        "DinoMem accepts `at_time` but returns both the old and new fact, where Zep "
-        "correctly invalidates the stale one. S4 CRDT is the one place DinoMem is "
-        "**uniquely capable**: as of CRDT V3 it ships a real op-based LWW-Register "
-        "CvRDT engine + a black-box replica/sync API, so it is the **only** system "
-        "under test the convergence test can drive end-to-end (every other real "
-        "system is N/A — no replica/sync surface); the engine's convergence is "
-        "property-tested in the core "
-        "(`agentmem/supabase/functions/api/lib/crdt-merge.test.ts`). The S4-DinoMem "
-        "cell in the scorecard reflects the data in `runs/` only — it shows ✅ once a "
-        "live run against a deployed CRDT-V3 instance has been recorded, and is never "
-        "hand-edited. Any crash cell is a genuine backend defect, not hidden._"
+        "_Reading this honestly: S2 temporal (`T1.t1`) is a real **failure** — "
+        "DinoMem accepts `at_time` and correctly filters at T0 (only the first fact "
+        "is returned), but at T1 both facts are returned under the default `ignore` "
+        "policy because DinoMem does not supersede the old fact without a conflict "
+        "classification. Zep correctly invalidates the stale one via graph `invalid_at`. "
+        "The S2 gap is structural: the write response carries no server-assigned "
+        "`created_at`, so the T0/T1 points used in `atTime` queries are client-side "
+        "approximations; and `timestamp_wins` supersession requires LLM conflict "
+        "detection to fire, which doesn't trigger for semantically-distinct facts. "
+        "S1 crashes on this run due to a Gemini free-tier 429 — the crash is real and "
+        "is listed; the June run (SUT 'agentmem', same product) passed S1/S6 under a "
+        "fresh quota. "
+        "S4 CRDT is the one place DinoMem is **uniquely capable**: as of CRDT V3 it "
+        "ships a real op-based LWW-Register CvRDT engine + a black-box replica/sync "
+        "API, so it is the **only** system under test the convergence test can drive "
+        "end-to-end (every other real system is N/A — no replica/sync surface); "
+        "convergence was measured live on 2026-07-05 (run `2026-07-05-161701`). "
+        "Any crash cell is a genuine backend defect, not hidden._"
     )
     return lines
 
@@ -221,6 +227,11 @@ def render(runs: list[dict], chosen, suts, provenance) -> str:
     lines.append(f"Generated from {len(runs)} run(s) in `runs/`. Per (SUT, scenario) the most")
     lines.append("recent run with real metrics is used (provenance at the bottom). FakeSUT is")
     lines.append("the in-process reference, not a system under test.")
+    lines.append("")
+    lines.append("> **Note on SUT naming:** the `agentmem` column reflects June 2026 runs recorded before")
+    lines.append("> the adapter was renamed `dinomem` (same product, same hosted endpoint). The `dinomem`")
+    lines.append("> column reflects July 2026 runs on the live deployed endpoint. Where a scenario is")
+    lines.append("> present in the `dinomem` column, those numbers supersede `agentmem` for that scenario.")
     lines.append("")
     lines.append("## Scorecard")
     lines.append("")
@@ -248,6 +259,37 @@ def render(runs: list[dict], chosen, suts, provenance) -> str:
 
     # explicit anti-self-serving section: every cell DinoMem does NOT win
     lines += _render_home_losses(chosen, suts)
+
+    # editorial notes — operational caveats that the scorecard numbers alone don't convey
+    lines += [
+        "",
+        "## Notes",
+        "",
+        "### S7 latency — rerank caveat",
+        "",
+        ("The `Op.search_p50_ms` for DinoMem is measured **without `rerank:true`** "
+         "(the bench adapter does not pass it). In the Fincil app-level dogfood run "
+         "(2026-07-05), DinoMem search with `rerank:true` measured 2,586–6,294ms per "
+         "call (~3–4s overhead on top of bare hybrid search). The bench search p50 "
+         "figure is correct for the bare-search operating mode, but real applications "
+         "using rerank for relevance filtering should expect 2.5–6s per search."),
+        "",
+        "### App-level validation (Fincil dogfood, 2026-07-05)",
+        "",
+        ("DinoMem was wired into **Fincil** (a 3-persona AI financial council app: "
+         "Miser / Visionary / Twin) as `MEMORY_PROVIDER=dinomem` and run across 3 "
+         "debate sessions. Key confirmations: S1/S6 conflict detection and "
+         "`planner_wins` policy behave as the bench describes; P1 factKey bi-temporal "
+         "versioning correctly closes prior validity windows; P2 immutable receipts "
+         "generated on every search (8 receipts / 3 debates). Cross-session recall "
+         "was faithful (council cited prior ₹80k approval every round, no "
+         "confabulation). Memory tax: ~15% (~6.2s per debate) — rerank dominates. "
+         "Critical operational finding: `factKeyPrefix` does **not** filter on the "
+         "live endpoint — `workflowId` is the only reliable per-user isolation "
+         "primitive (the bench adapter uses `workflowId` namespacing, which is "
+         "correct). Full notes: "
+         "`/mnt/308E51BA8E517974/fincil-remastered/notes/dinomem-test/`."),
+    ]
 
     # provenance
     lines += ["", "## Provenance", "", "| SUT | scenario | run |", "|---|---|---|"]

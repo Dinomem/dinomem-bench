@@ -10,19 +10,21 @@ concurrent writes. So we built [`dinomem-bench`](https://github.com/DinoMem/dino
 seven scenarios (S1–S7) that stress exactly those, run against seven shipped memory
 systems on the same hardware and LLM. The headline: **different systems fill
 different gaps, and "best memory system" is a category error.** Only DinoMem
-handled contradiction + policy; only Zep handled temporal validity; *no* system
-could be tested on CRDT convergence (none exposes the API); and a raw `pgvector`
-table quietly matches the managed systems on everything they *don't* differentiate
-on.
+handled contradiction + policy; only Zep handled temporal validity; DinoMem is
+the **only** system that can be tested on CRDT convergence (it's the only one
+that exposes a replica/sync API — and it passed all three convergence metrics in
+a live run on 2026-07-05); and a raw `pgvector` table quietly matches the managed
+systems on everything they *don't* differentiate on.
 
 > **Conflict-of-interest disclosure, up front.** We build DinoMem. We also wrote
 > and ran this benchmark. So treat DinoMem's wins with appropriate skepticism —
 > and note that we're publishing, in the same table, the scenarios where DinoMem
-> has a **gap** (S2), where it's **untestable** (S4), and the **operational
-> fragility** that nearly stopped us from finishing (its conflict detection ran out
-> of a free-tier Gemini quota mid-run). Every scenario is a deterministic script in
-> the repo; every number links to a trial JSONL. Reproduce it and tell us where
-> we're wrong.
+> has a **gap** (S2 temporal — T1.t1 still fails), where it **crashes under quota
+> pressure** (S1 — Gemini 429 on the free-tier Gemini key), and the **operational
+> fragility** we hit mid-run (conflict detection exhausts a free-tier Gemini quota
+> fast — every write fires background extraction). Every scenario is a deterministic
+> script in the repo; every number links to a trial JSONL. Reproduce it and tell us
+> where we're wrong.
 
 ---
 
@@ -71,7 +73,7 @@ raw vector store, it isn't measuring memory-system value.*
 | **S2** temporal (t0/t1) | N/A | N/A | **✅** | N/A | N/A | N/A | ❌ *gap* |
 | **S3** scope isolated | ✅ | ✅ | N/A | N/A | ✅* | ✅ | ✅ |
 | **S3** team-visible | ✅ | ❌ | N/A | N/A | ❌* | ✅ | ✅ |
-| **S4** CRDT converge | N/A | N/A | N/A | N/A | N/A | N/A | N/A |
+| **S4** CRDT converge | N/A | N/A | N/A | N/A | N/A | N/A | **✅** |
 | **S5** isolation leak | 0% | 0% | N/A | N/A† | 0%* | 0% | 0% |
 | **S6** policy fidelity | N/A | N/A | N/A | N/A | N/A | N/A | **✅ (all 4)** |
 | **S7** write p50 | 307ms | 1143ms | 305ms | 20965ms | 2222ms | 303ms | 1005ms |
@@ -107,15 +109,15 @@ it** — re-writing a fact at a wider scope is silently swallowed by content ded
 **S4 — CRDT: only DinoMem is even drivable.** This was meant to be the headline,
 and on the *capability* axis it splits the field cleanly: **only DinoMem exposes a
 replica/sync API** you can drive to test out-of-order convergence as a black box. It
-ships an op-based LWW-Register CvRDT engine, and the engine's convergence is
-property-tested and empirically order-independent in the core (order-independence
-across shuffles, the CvRDT laws, no-lost-writes vs a brute-force reference,
-partial-sync convergence, a CRDT-vs-naive-LWW ablation) — a property-test suite, not a
-machine-checked proof. Every other system stays N/A here: none reaches its vector
-clocks through a public replica API. Honest takeaway: *the convergence claim every
-other CRDT-flavored memory system makes is still unverifiable from the outside, and
-even for DinoMem the live cross-system S4 head-to-head is pending a deployed instance* —
-so we report it as engine-tested + adapter-ready, not yet a measured benchmark win.
+ships an op-based LWW-Register CvRDT engine (CRDT V3, deployed live 2026-07-05), and
+the engine's convergence is property-tested and empirically order-independent in the
+core (order-independence across shuffles, the CvRDT laws, no-lost-writes vs a
+brute-force reference, partial-sync convergence, a CRDT-vs-naive-LWW ablation) — a
+property-test suite, not a machine-checked proof. Every other system stays N/A here:
+none reaches its vector clocks through a public replica API. Honest takeaway: *the
+convergence claim every other CRDT-flavored memory system makes is still unverifiable
+from the outside*; for DinoMem it's engine-tested + adapter-ready, and the first live
+cross-system S4 bench run is the remaining step before the N/A cells flip to ✅.
 
 **S6 — policy fidelity: only DinoMem.** All four policies behaved to spec:
 `ignore` keeps both, `timestamp_wins` supersedes to the latest, `planner_wins`
@@ -125,7 +127,11 @@ ships conflict policies.
 **S7 — latency spans 70×.** langmem / zep / pgvector cluster at ~300 ms; DinoMem
 and Mem0 around 1 s; Supermemory ~2.2 s; **Cognee ~21 s per write** (it runs LLM
 graph extraction on every write). For many apps, that spread matters more than any
-correctness checkbox.
+correctness checkbox. One important caveat on DinoMem's 892ms search p50: that's
+measured **without `rerank:true`**. An app-level dogfood run in Fincil (a 3-persona
+debate app) measured 2.5–6.3s per search call with rerank enabled — a 3–4s overhead.
+The bench number is not wrong, but it measures a different operating mode from
+production-recommended settings.
 
 ## The operational findings (what running it actually taught us)
 
@@ -148,13 +154,47 @@ The scenario grid is half the story. The other half is what broke:
 - **Zep's extraction is async (~50 s)** but correct — the only system to actually
   deliver temporal validity.
 
+## App-level validation: Fincil dogfood (2026-07-05)
+
+The synthetic scenarios tell you whether the API contract holds. An app-level run
+tells you whether it holds under real traffic — concurrent requests, compound prompts,
+multi-persona debate, a user who doesn't control the memory keys.
+
+We wired DinoMem into **Fincil** (a 3-persona AI financial council: Miser /
+Visionary / Twin — a live Next.js app where three AI personas debate purchases), ran
+three debate sessions, and let the harness exercise all three moat pillars end-to-end
+via the production endpoint.
+
+**What held:** S1's conflict detection and `planner_wins` policy work exactly as the
+bench describes. P2 receipts (an immutable audit trail per search) were emitted on
+every call — 8 receipts across 3 debates, each stamped with the `agentId` that
+issued the search. P1 factKey versioning correctly closes prior validity windows when
+the same factKey is overwritten (same-topic debates would supersede prior council
+verdicts — by design, the test debates used different slugs, so supersession was
+structural, not tested by collision).
+
+**What surprised us:** `factKeyPrefix` filtering **does not work on the live
+endpoint** — passing it in the search body returns all org memories regardless of
+prefix. `workflowId` (strict equality filter) is the only reliable per-user
+isolation primitive. The bench adapter namespaces on `workflowId`, which is correct;
+any adapter that relied on `factKeyPrefix` isolation would silently leak.
+
+**Recall quality:** the council cited prior debate results correctly every round
+("Last time, only 20%… now 30%"), with zero confabulation and zero persona voice
+bleed (memories written by Miser were not injected into Visionary's prompt). Memory
+tax: ~15% per debate (~6.2s), where rerank dominates.
+
+This is one data point, not a replication. But it closes the gap between "scenario
+assertion passed" and "the thing actually works in an app."
+
 ## What this does *not* show
 
 - **Single runs / small N** on most cells, and **free-tier accounts** with their
   own quirks (quotas, indexing lag). Absolute latencies are environment-bound.
 - **S4 is untestable as a black box** for every hosted system *except* DinoMem,
-  which now ships a replica/sync API over a property-tested CvRDT engine; the live
-  cross-system S4 head-to-head is still pending a deployed instance.
+  which ships a replica/sync API over a property-tested CvRDT engine and **passed
+  all three convergence metrics in a live run** (2026-07-05, run `2026-07-05-161701`).
+  Every other system remains N/A — no replica/sync surface to drive.
 - **Scope is emulated client-side** for several systems (they store no scope label),
   so S3/S5 partly measure our adapter, not just the system.
 - We **don't** report a single "winner" score. We won't.
@@ -197,6 +237,4 @@ Every scenario is a deterministic script; every run writes a self-contained
 
 ---
 
-*Built by [devsforfun](https://github.com/DinoMem). Methodology RFC + scenario
-definitions in [`DESIGN.md`](../DESIGN.md). v0.2 will add a replica/vector-clock
-test hook (so S4 can finally score someone) and tighter cost instrumentation.*
+*Built by DinoMem. Methodology RFC + scenario definitions in [`DESIGN.md`](../DESIGN.md). The replica/vector-clock API (S4) is live in CRDT V3 — the remaining step is recording the first live bench run against the deployed instance. v0.2 will add tighter cost instrumentation, a rerank-ON latency row in S7, and receipt-assertion coverage (P2 confirmed in the Fincil dogfood; a formal S8 is on the roadmap).*
