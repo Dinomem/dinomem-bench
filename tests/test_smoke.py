@@ -50,7 +50,7 @@ class MinimalSUT(SUTAdapter):
         self._rows: list[dict] = []
         self._n = 0
 
-    def write(self, content, *, agent_id, scope="team", role=None, workflow_id=None):
+    def write(self, content, *, agent_id, scope="team", role=None, workflow_id=None, fact_key=None):
         self._n += 1
         row = {"id": f"x{self._n}", "content": content, "agent_id": agent_id,
                "scope": scope, "wf": workflow_id, "ts": datetime(2026, 1, 1)}
