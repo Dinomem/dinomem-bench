@@ -1,6 +1,6 @@
 # We benchmarked 7 memory systems on the things that actually break multi-agent apps
 
-*Draft — dinomem-bench v0.1 results. 2026-06-13.*
+*Draft — dinomem-bench v0.1 results. 2026-07-06.*
 
 **TL;DR.** Every published agent-memory benchmark measures one agent recalling
 facts from one long conversation. But production multi-agent systems don't fail on
@@ -10,18 +10,18 @@ concurrent writes. So we built [`dinomem-bench`](https://github.com/DinoMem/dino
 seven scenarios (S1–S7) that stress exactly those, run against seven shipped memory
 systems on the same hardware and LLM. The headline: **different systems fill
 different gaps, and "best memory system" is a category error.** Only DinoMem
-handled contradiction + policy; only Zep handled temporal validity; DinoMem is
-the **only** system that can be tested on CRDT convergence (it's the only one
-that exposes a replica/sync API — and it passed all three convergence metrics in
-a live run on 2026-07-05); and a raw `pgvector` table quietly matches the managed
-systems on everything they *don't* differentiate on.
+handled contradiction + policy; Zep and DinoMem both handle temporal validity (via
+different mechanisms); DinoMem is the **only** system that can be tested on CRDT
+convergence (it's the only one that exposes a replica/sync API — and it passed all
+three convergence metrics in a live run on 2026-07-05); and a raw `pgvector` table
+quietly matches the managed systems on everything they *don't* differentiate on.
 
 > **Conflict-of-interest disclosure, up front.** We build DinoMem. We also wrote
 > and ran this benchmark. So treat DinoMem's wins with appropriate skepticism —
-> and note that we're publishing, in the same table, where DinoMem **crashes under
-> quota pressure** (S1 — Gemini 429 on the free-tier Gemini key) and the
-> **operational fragility** we hit mid-run (conflict detection exhausts a free-tier
-> Gemini quota fast — every write fires background extraction). Every scenario is a
+> and note that we're publishing the **operational fragility** we hit mid-run:
+> conflict detection exhausts a free-tier Gemini quota fast (every write fires
+> background extraction); S1 and S6 crashed on the first attempt with a 429, and
+> required rotating the backend Gemini key to complete. Every scenario is a
 > deterministic script in the repo; every number links to a trial JSONL. Reproduce it
 > and tell us where we're wrong.
 
@@ -115,11 +115,12 @@ ships an op-based LWW-Register CvRDT engine (CRDT V3, deployed live 2026-07-05),
 the engine's convergence is property-tested and empirically order-independent in the
 core (order-independence across shuffles, the CvRDT laws, no-lost-writes vs a
 brute-force reference, partial-sync convergence, a CRDT-vs-naive-LWW ablation) — a
-property-test suite, not a machine-checked proof. Every other system stays N/A here:
-none reaches its vector clocks through a public replica API. Honest takeaway: *the
-convergence claim every other CRDT-flavored memory system makes is still unverifiable
-from the outside*; for DinoMem it's engine-tested + adapter-ready, and the first live
-cross-system S4 bench run is the remaining step before the N/A cells flip to ✅.
+property-test suite, not a machine-checked proof. It passed all three convergence
+metrics in a live bench run (2026-07-05, run `2026-07-05-161701`). Every other system
+stays N/A here: none reaches its vector clocks through a public replica API. Honest
+takeaway: *the convergence claim every other CRDT-flavored memory system makes is
+still unverifiable from the outside*; for DinoMem it's engine-tested, adapter-ready,
+and now live-measured.
 
 **S6 — policy fidelity: only DinoMem.** All four policies behaved to spec:
 `ignore` keeps both, `timestamp_wins` supersedes to the latest, `planner_wins`
@@ -129,11 +130,11 @@ ships conflict policies.
 **S7 — latency spans 70×.** langmem / zep / pgvector cluster at ~300 ms; DinoMem
 and Mem0 around 1 s; Supermemory ~2.2 s; **Cognee ~21 s per write** (it runs LLM
 graph extraction on every write). For many apps, that spread matters more than any
-correctness checkbox. One important caveat on DinoMem's 892ms search p50: that's
-measured **without `rerank:true`**. An app-level dogfood run in Fincil (a 3-persona
-debate app) measured 2.5–6.3s per search call with rerank enabled — a 3–4s overhead.
-The bench number is not wrong, but it measures a different operating mode from
-production-recommended settings.
+correctness checkbox. One important caveat on DinoMem's 1025ms search p50: that's
+measured **without `rerank:true`** (confirmed stable at 300 writes / 150 searches).
+An app-level dogfood run in Fincil (a 3-persona debate app) measured 2.5–6.3s per
+search call with rerank enabled — a 3–4s overhead. The bench number is not wrong,
+but it measures a different operating mode from production-recommended settings.
 
 ## The operational findings (what running it actually taught us)
 
@@ -141,10 +142,10 @@ The scenario grid is half the story. The other half is what broke:
 
 - **DinoMem (us): conflict detection is bound to the extraction LLM's quota, and
   it 5xx's instead of degrading.** Our backend's free-tier Gemini key hit its daily
-  request cap mid-benchmark; conflict-detection writes returned `500` rather than
-  failing gracefully. We also caught a `500` under near-simultaneous policy writes.
-  Both are now on our fix list. (We only completed S6 after swapping in a fresh
-  Gemini key on the backend — an honest illustration of the fragility.)
+  request cap mid-run; S1 and S6 returned `429` on the first attempt. We rotated the
+  backend Gemini key and re-ran — both passed cleanly. The fragility is real: a quota
+  exhaustion from background extraction (every write triggers it) can silently block
+  foreground conflict detection. Graceful degradation is on our fix list.
 - **Mem0 & Supermemory dedup/aggregate identical content** and lose the scope
   change in the process (the S3 "team-visible" failure).
 - **Supermemory's free-tier indexing is ~50 s/doc**, and its memory search
@@ -153,8 +154,8 @@ The scenario grid is half the story. The other half is what broke:
 - **Cognee, in its zero-setup mode, doesn't isolate at all** — with access control
   off, search queries the global graph and leaked 100% across workflows. Real
   isolation requires its multi-tenant layer. And it's the slowest by 10×.
-- **Zep's extraction is async (~50 s)** but correct — the only system to actually
-  deliver temporal validity.
+- **Zep's extraction is async (~50 s)** but correct — one of two systems to deliver
+  temporal validity (the other being DinoMem via explicit factKey).
 
 ## App-level validation: Fincil dogfood (2026-07-05)
 
@@ -239,4 +240,4 @@ Every scenario is a deterministic script; every run writes a self-contained
 
 ---
 
-*Built by DinoMem. Methodology RFC + scenario definitions in [`DESIGN.md`](../DESIGN.md). The replica/vector-clock API (S4) is live in CRDT V3 — the remaining step is recording the first live bench run against the deployed instance. v0.2 will add tighter cost instrumentation, a rerank-ON latency row in S7, and receipt-assertion coverage (P2 confirmed in the Fincil dogfood; a formal S8 is on the roadmap).*
+*Built by DinoMem. Methodology RFC + scenario definitions in [`DESIGN.md`](../DESIGN.md). All seven scenarios measured live on the deployed endpoint (2026-07-05/06). v0.2 will add tighter cost instrumentation, a rerank-ON latency row in S7, and receipt-assertion coverage (P2 confirmed in the Fincil dogfood; a formal S8 is on the roadmap).*
