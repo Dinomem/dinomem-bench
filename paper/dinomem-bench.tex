@@ -40,19 +40,26 @@ behind a uniform black-box adapter, with an in-process reference implementation 
 validates the scenarios themselves. We report per-scenario, per-metric results---not
 a single score---and find the capability space sharply non-uniform: contradiction
 detection/resolution and conflict policies are provided by exactly one system;
-bitemporal ``what was true at $T$?'' retrieval by exactly one \emph{other} system;
-and concurrent-write CRDT convergence is \emph{drivable in exactly one} system---DinoMem,
-which ships an op-based LWW-Register CvRDT engine (with property-tested,
-empirically order-independent convergence) behind a black-box replica/sync API,
-the only such surface among the systems under test; every other system remains N/A
-on that axis because none exposes a replica API a convergence test can drive (the
-live cross-system S4 run awaits a deployed instance). A raw vector store matches the managed systems on every
-property that does not require coordination machinery. Beyond the grid, running the
-benchmark surfaced reproducible operational failures (LLM-quota-coupled 5xx errors,
-silent content deduplication that drops scope changes, ${\sim}50$\,s indexing
-latencies, and a configuration in which one system enforces no isolation at all).
+bitemporal ``what was true at $T$?'' retrieval is answered correctly by exactly two
+systems via \emph{opposite contracts} (automatic fact invalidation vs.\ caller-keyed
+versioning); and concurrent-write CRDT convergence is \emph{measurable in exactly
+one} system---DinoMem, whose op-based LWW-Register CvRDT engine we drove live
+through its black-box replica/sync API: replicas receiving concurrent conflicting
+writes under out-of-order gossip converged to one deterministic, lossless state
+across 10 delivery orders (${\sim}1.5$\,s per sync round-trip); every other system
+remains N/A on that axis because none exposes a replica API a convergence test can
+drive. A raw vector store matches the managed systems on every property that does
+not require coordination machinery. Beyond the grid, running the benchmark surfaced
+reproducible operational failures (LLM-quota-coupled 5xx errors, silent content
+deduplication that drops scope changes, ${\sim}50$\,s indexing latencies, a
+documented filter parameter that performs no filtering, and a configuration in
+which one system enforces no isolation at all). We additionally validate the
+grid's findings at application level in a production-shaped multi-agent app, where
+bi-temporal supersession and per-read audit receipts were observed end-to-end.
 We release the harness, scenarios, and complete run logs, and disclose prominently
-that the benchmark's authors also build one of the systems under test.
+that the benchmark's authors also build one of the systems under test---which, in
+the current runs, passes every correctness metric; the conflict-of-interest section
+states exactly how each such cell is conditioned.
 \end{abstract}
 
 \section{Introduction}
@@ -88,7 +95,8 @@ We close that gap. Our contributions:
   committed fixtures, reported as a per-metric matrix, not a leaderboard
   (\S\ref{sec:results}).
   \item \textbf{Qualitative operational findings} the runs exposed
-  (\S\ref{sec:operational}).
+  (\S\ref{sec:operational}), plus an \textbf{application-level validation} of the
+  grid's findings in a production-shaped multi-agent app (\S\ref{sec:dogfood}).
   \item \textbf{A fully reproducible release} with one-command runs, committed raw
   logs, and an explicit conflict-of-interest disclosure (\S\ref{sec:coi}).
 \end{enumerate}
@@ -96,9 +104,10 @@ We close that gap. Our contributions:
 Our central claim is deliberately anti-climactic: \emph{there is no ``best''
 multi-agent memory system}---capabilities are disjoint, several systems provide none
 beyond a vector store, and one property (concurrent-write CRDT convergence) is
-\emph{drivable in only one} of the shipping products: DinoMem exposes a black-box
-replica/sync API over a property-tested CvRDT engine, while every other system remains
-unverifiable on that axis for lack of any replica surface to drive.
+\emph{measurable in only one} of the shipping products: DinoMem exposes a black-box
+replica/sync API over a property-tested CvRDT engine, and the live S4 run converged
+deterministically and losslessly, while every other system remains unverifiable on
+that axis for lack of any replica surface to drive.
 
 \section{Related Work}
 \textbf{Single-agent memory benchmarks.} LoCoMo~\cite{maharana2024locomo} and
@@ -134,6 +143,10 @@ raise \texttt{Unsupported}, recorded as N/A. Adapters are ${\sim}100$ lines.
   \emph{detected}, \emph{resolved} (under \texttt{planner\_wins}), \emph{consistent}.
   \item \textbf{S2 Temporal}: write F1 at $T_0$, contradicting F2 at $T_1$; query
   \texttt{at\_time}. Metrics: $t_0$ (returns F1), $t_1$ (returns F2), \emph{bitemporal}.
+  Each system gets its native temporal mechanism: systems advertising a
+  fact-versioning capability receive a stable fact key on both writes; systems with
+  automatic invalidation need no hint. The contract difference is reported, not
+  hidden (\S\ref{sec:results}).
   \item \textbf{S3 Scope}: \texttt{private} then \texttt{team}; \emph{isolated},
   \emph{team\_visible}, \emph{cross\_workflow}.
   \item \textbf{S4 CRDT}: conflicting writes on two replicas, synced out-of-order;
@@ -169,13 +182,13 @@ pipelines are awaited to index-visibility rather than slept on.
 \begin{figure}[t]
   \centering
   \includegraphics[width=0.92\linewidth]{capability_heatmap.pdf}
-  \caption{Capability matrix across S1--S6. Green = pass, red = fail, gray = N/A (no
-  API). Only DinoMem fills S1 (contradiction) and S6 (policy); only Zep fills S2
-  (temporal); S4 (CRDT) is N/A for every shipping system \emph{except} DinoMem, the
-  only one exposing a replica/sync API a convergence test can drive (its engine's
-  convergence is property-tested in the core; the cross-system live S4 run is pending
-  a deployed instance, so the grid cell stays gray until then). DinoMem's S2 failure
-  (it accepts \texttt{at\_time} but returns both facts) is shown in red.}
+  \caption{Capability matrix across S1--S6 (July 2026 live runs). Green = pass, red
+  = fail, gray = N/A (no API). Only DinoMem fills S1 (contradiction) and S6 (policy);
+  S2 (temporal) is filled by two systems under opposite contracts---Zep via automatic
+  fact invalidation, DinoMem via caller-keyed versioning (\texttt{factKey}; a pass
+  conditional on the caller keying the fact, \S\ref{sec:results}); S4 (CRDT) is
+  measured for DinoMem only---the sole system exposing a replica/sync API a
+  convergence test can drive; all others remain gray (unmeasured, not failed).}
   \label{fig:heatmap}
 \end{figure}
 
@@ -184,27 +197,38 @@ DinoMem exposes a conflict-detection API and resolves per policy (it blocked the
 executor's conflicting write under \texttt{planner\_wins} with a high-severity
 conflict description). No other system surfaces a contradiction; we verified Mem0's
 write-time LLM dedup does \emph{not} resolve it---the stale and new values coexist.
-\textbf{S2 (temporal):} only Zep answers point-in-time queries correctly, via
-bitemporal fact invalidation ($\texttt{invalid\_at}=T_1$); DinoMem accepts
-\texttt{at\_time} but returns both facts (a genuine gap), and others lack temporal
-queries entirely. \textbf{S3/S5 (scope):} expressible as filter predicates, so the
-baselines pass---confirming these do not differentiate memory systems from vector
-stores; the informative split is intra-tier: \emph{verbatim stores (pgvector,
-LangMem, DinoMem) preserve a re-scoped fact; dedup/aggregating stores (Mem0,
-Supermemory) silently drop the scope change}. \textbf{S4 (CRDT):} N/A for every
-shipping system \emph{except} DinoMem. DinoMem ships an op-based LWW-Register CvRDT
-engine behind a black-box replica/sync API (\texttt{replica\_write} / \texttt{sync} /
-\texttt{state}); its convergence is property-tested and empirically order-independent
-in the core (a suite that shuffles op-delivery orders and checks the CvRDT laws---
-commutativity, associativity, idempotence---no-lost-writes against an independent
-brute-force reference, partial out-of-order sync convergence, and a CRDT-vs-naive-LWW
-ablation). It is therefore the only system under test whose convergence a black-box
-test can drive end-to-end; every other system remains N/A for lack of a replica
-surface. The cross-system live S4 head-to-head awaits a deployed CRDT-V3 instance,
-so the committed grid still shows only the reference as a measured pass and DinoMem's
-S4 cell as engine-property-tested-plus-adapter-ready (it flips to a measured \pass{}
-once a live run is recorded, never hand-edited). \textbf{S6 (policy):} DinoMem satisfies
-all four policies to spec; no other system ships conflict policies.
+\textbf{S2 (temporal):} two systems answer point-in-time queries correctly, via
+opposite contracts. Zep extracts facts into a bitemporal graph and
+\emph{automatically} invalidates the stale one ($\texttt{invalid\_at}=T_1$), with no
+caller involvement. DinoMem passes when both writes carry the same \texttt{factKey}:
+its bi-temporal versioning closes the prior fact's validity window on the second
+write, and \texttt{at\_time} then isolates each fact ($T_0 \to$ F1 only, $T_1 \to$
+F2 only; run \texttt{2026-07-05-164423}). Without a fact key---a plain write under
+the default \texttt{ignore} policy---both contradicting facts remain visible at
+every \texttt{at\_time} point: DinoMem does not supersede on semantic contradiction
+alone. Same passing cell, different contract; callers who never key their facts get
+no temporal disambiguation, and we report the pass as conditional on that opt-in.
+Others lack temporal queries entirely. \textbf{S3/S5 (scope):} expressible as filter
+predicates, so the baselines pass---confirming these do not differentiate memory
+systems from vector stores; the informative split is intra-tier: \emph{verbatim
+stores (pgvector, LangMem, DinoMem) preserve a re-scoped fact; dedup/aggregating
+stores (Mem0, Supermemory) silently drop the scope change}. \textbf{S4 (CRDT):}
+measured live for DinoMem; N/A for every other shipping system. DinoMem ships an
+op-based LWW-Register CvRDT engine behind a black-box replica/sync API
+(\texttt{replica\_write} / \texttt{sync} / \texttt{state}). In the live run
+(\texttt{2026-07-05-161701}), two replicas took four concurrent conflicting writes,
+gossiped out-of-order, and converged to one identical, lossless state; replaying
+delivery in 10 distinct orders produced exactly one distinct final state
+(\emph{deterministic}), at ${\sim}1.5$\,s wall-clock per out-of-order sync
+round-trip. The engine's convergence is additionally property-tested in the core (a
+suite that shuffles op-delivery orders and checks the CvRDT laws---commutativity,
+associativity, idempotence---no-lost-writes against an independent brute-force
+reference, and a CRDT-vs-naive-LWW ablation). Every other system remains N/A for
+lack of a replica surface: their convergence is \emph{unmeasured}, not failed. The
+live run's scale is deliberately small (2 replicas, 4 concurrent ops)---a
+correctness check, not a distributed-systems stress test (\S\ref{sec:threats}).
+\textbf{S6 (policy):} DinoMem satisfies all four policies to spec; no other system
+ships conflict policies.
 
 \begin{figure}[t]
   \centering
@@ -215,10 +239,16 @@ all four policies to spec; no other system ships conflict policies.
   \label{fig:latency}
 \end{figure}
 
-\textbf{S7 (operational, Table~\ref{tab:latency}).} The four quota-unconstrained
-systems are reported with full per-operation distributions ($N{=}100$, or $40$ for
-Mem0); the three slow/quota-limited systems retain single-run percentiles at the
-stated $N$ (their order-of-magnitude latency is unambiguous regardless of $N$).
+\textbf{S7 (operational, Table~\ref{tab:latency}).} Five systems are reported with
+full per-operation distributions ($N{=}300$ for DinoMem, $100$ for
+LangMem/Zep/pgvector, $40$ for Mem0); the two slow/quota-limited systems retain
+single-run percentiles at the stated $N$ (their order-of-magnitude latency is
+unambiguous regardless of $N$). DinoMem search latency is $1036.6\pm115.1$\,ms over
+$N{=}150$ (p50 1025, p99 1340) in the bench's bare hybrid-search mode; its
+recommended relevance mode (\texttt{rerank:true}) adds a further ${\sim}3$--$4$\,s
+per search (2.6--6.3\,s per call measured at application level,
+\S\ref{sec:dogfood}). Applications should budget for the operating mode they will
+actually run.
 
 \begin{table}[t]
   \centering
@@ -233,8 +263,8 @@ stated $N$ (their order-of-magnitude latency is unambiguous regardless of $N$).
     LangMem      & $319.6\pm208.4$ & 270.8 & 444.0 & 941.5 & 100 \\
     Zep          & $322.1\pm113.4$ & 299.5 & 405.4 & 767.8 & 100 \\
     pgvector     & $518.8\pm260.0$ & 469.9 & 725.3 & 1425.2 & 100 \\
+    DinoMem      & $1085.6\pm103.5$ & 1088.7 & 1240.5 & 1432.6 & 300 \\
     Mem0         & $1119.5\pm145.1$ & 1082.4 & 1498.4 & 1661.0 & 40 \\
-    DinoMem     & \na & 1004.9 & 1084.2 & --- & ${\sim}20^{\dagger}$ \\
     Supermemory  & \na & 2221.6 & 7172.5 & --- & ${\sim}30^{\dagger}$ \\
     Cognee       & \na & 20965.4 & 28168.0 & --- & ${\sim}5^{\dagger}$ \\
     \bottomrule
@@ -245,11 +275,18 @@ stated $N$ (their order-of-magnitude latency is unambiguous regardless of $N$).
 Static metrics understate what running the systems revealed.
 \begin{itemize}
   \item \textbf{LLM-quota coupling (DinoMem).} Conflict detection/extraction is
-  backed by a generative model; under a daily free-tier quota it returned \texttt{500}
-  rather than degrading gracefully, and we observed a \texttt{500} under
-  near-simultaneous policy writes. S6 completed only after provisioning fresh model
-  quota on the backend---an honest demonstration of fragility in the authors' own
+  backed by a generative model; under a daily free-tier quota it returns \texttt{5xx}
+  rather than degrading gracefully. This reproduced across a month: the June S6 run
+  completed only after provisioning fresh model quota, and in July the S1 scenario
+  crashed on a quota 429 surfaced as \texttt{500} (run \texttt{2026-07-06-010838})
+  and passed only after rotating to a fresh key (run \texttt{2026-07-06-013045}).
+  Both runs are committed---an honest demonstration of fragility in the authors' own
   system.
+  \item \textbf{A documented filter that does not filter (DinoMem).} The live
+  endpoint accepts a \texttt{factKeyPrefix} search parameter but performs no
+  filtering with it (all org memories are returned regardless). Callers must isolate
+  by \texttt{workflowId}, which filters exactly. A second defect in the authors' own
+  system---found by the application-level run (\S\ref{sec:dogfood}), not by the grid.
   \item \textbf{Dedup that drops scope (Mem0, Supermemory).} Re-writing identical
   content at a wider scope returns the original record's identity (Mem0) or aggregates
   to one memory (Supermemory), losing the scope change (the S3 \emph{team\_visible}
@@ -264,66 +301,103 @@ Static metrics understate what running the systems revealed.
   extraction, but the only system to deliver temporal validity.
 \end{itemize}
 
+\section{Application-Level Validation}\label{sec:dogfood}
+Grid scenarios are synthetic by design; to check that the measured properties
+survive contact with a real application, we wired DinoMem into a production-shaped
+multi-agent app---a three-persona financial-debate application in which
+Miser/Visionary/Twin agents argue purchase decisions and persist verdicts---behind
+the same pluggable backend seam as three other memory systems, and ran live debate
+sweeps against the deployed service. Findings: (i)~cross-session recall was faithful
+in every debate round, with zero confabulation and zero cross-persona voice bleed;
+(ii)~\emph{bi-temporal supersession was observed end-to-end}: re-debating the same
+purchase wrote the same fact key, closed the prior fact's validity window
+(\texttt{valid\_to} set, \texttt{superseded\_by} pointing at the new write), exposed
+bidirectional lineage via the history API, and excluded the superseded fact from
+subsequent searches---notably, supersession triggered on the fact key alone, with no
+conflict-policy involvement; (iii)~every search emitted an immutable audit receipt
+attributing the read to the calling agent, with the returned memory identifiers
+recorded; (iv)~the recommended \texttt{rerank:true} relevance mode measured
+2.6--6.3\,s per search versus ${\sim}1.0$\,s in the bench's bare mode, putting
+memory at ${\sim}15\%$ of end-to-end debate wall-clock; and (v)~the
+\texttt{factKeyPrefix} defect (\S\ref{sec:operational}) was discovered here, not by
+the grid---evidence that application-level dogfooding catches what scenario grids
+miss. Raw transcripts and assertion logs are committed alongside the harness.
+
 \section{Discussion}
 The results refute a one-dimensional reading of ``memory system.'' Coordination
-capabilities are \emph{disjoint across vendors}: contradiction handling and policy
-(DinoMem), temporal validity (Zep) are each provided by one system, and several
-``memory systems'' provide nothing a vector store does not. Buyers should select by
-the specific coordination property their application requires---and verify the vendor
-even exposes an \emph{API} for it. A raw pgvector table is a strong, cheap baseline at
+capabilities are \emph{disjoint across vendors}: contradiction handling, policy, and
+replica convergence are provided by one system (DinoMem); temporal validity by two,
+under opposite contracts (Zep automatically, DinoMem only for caller-keyed facts);
+and several ``memory systems'' provide nothing a vector store does not. Buyers
+should select by the specific coordination property their application requires---and
+verify the vendor even exposes an \emph{API} for it, then check \emph{what the
+caller must do} to activate it: a capability that requires an opt-in the
+application never performs is, for that application, absent. A raw pgvector table is a strong, cheap baseline at
 modest scale; the managed premium is justified only by the coordination axes above.
 
-\section{Threats to Validity}
+\section{Threats to Validity}\label{sec:threats}
 \textbf{Statistical.} Correctness cells are single deterministic runs (validated by
-the reference implementation); S7 uses small $N$ on quota-limited hosted systems, and
-absolute latencies are environment- and tier-bound. \textbf{Construct.} Several
-systems store no scope label, so scope is emulated in the adapter; S3/S5 partly
-measure the adapter (marked). \textbf{Coverage.} S4 is untestable as a black box for
-every hosted system \emph{except} DinoMem, whose replica/sync API the convergence
-test can drive; for the others CRDT is \emph{unmeasured}, not failed. For DinoMem,
-the engine's convergence is property-tested in the core, but the cross-system live S4
-run is pending a deployed instance, so we report it as engine-tested-plus-adapter-ready
-rather than a measured head-to-head win. \textbf{Free-tier
-artifacts.} Quotas, indexing lag, and search recall on free tiers may differ from paid
-deployments. \textbf{Versioning.} Hosted backends may change server-side behavior we
-cannot pin; we pin client/package versions and re-publish on a cadence.
+the reference implementation); S7 retains small $N$ on two quota-limited hosted
+systems (Supermemory, Cognee), and absolute latencies are environment- and
+tier-bound. \textbf{Construct.} Several systems store no scope label, so scope is
+emulated in the adapter; S3/S5 partly measure the adapter (marked). S2 grants each
+system its native temporal mechanism: Zep invalidates automatically, DinoMem
+requires the caller to key the fact. The cell is a pass under that disclosed
+contract; applications that never set fact keys should read DinoMem's S2 as
+unavailable to them. \textbf{Coverage.} S4 is measured for exactly one system, and
+at deliberately small scale (2 replicas, 4 concurrent ops, 10 delivery orders): it
+establishes black-box convergence, not behavior under partition, scale, or
+adversarial interleavings. For all other systems CRDT convergence is
+\emph{unmeasured}, not failed. \textbf{Free-tier artifacts.} Quotas, indexing lag,
+and search recall on free tiers may differ from paid deployments.
+\textbf{Versioning.} Hosted backends may change server-side behavior we cannot pin;
+we pin client/package versions, commit run manifests with git SHAs, and re-publish
+on a cadence.
 
 \section{Conflict of Interest}\label{sec:coi}
-The authors develop \textbf{DinoMem}, one of the seven systems under test, and
-DinoMem attains the only passes on S1 and S6 (its \emph{shipped} conflict policies:
-\texttt{planner\_wins} / \texttt{timestamp\_wins} / \texttt{human\_in\_loop}), and is
-also the only system that exposes a drivable replica/sync API on S4. Because we both
-build and benchmark the one S4-capable system, that result demands the most scrutiny,
-so we state its limits precisely. DinoMem ships an op-based LWW-Register CvRDT engine
-whose convergence is \emph{property-tested and empirically order-independent} in the
-core (the suite checks order-independence across shuffles, the CvRDT laws,
-no-lost-writes against an independent brute-force reference, and a CRDT-vs-naive-LWW
-ablation); this is a property-test suite, \emph{not} a machine-checked proof, so we
-claim ``property-tested convergence,'' not ``proven'' or ``guaranteed.'' We have
-\emph{not} yet run a live cross-system S4 head-to-head against a deployed instance, so
-we claim no \emph{measured} S4 benchmark win---DinoMem's S4 cell is reported as
-engine-property-tested-plus-adapter-ready and flips to a measured pass only when a
-live run is recorded. The honest asymmetry is that DinoMem is uniquely \emph{drivable}
-on S4 (it alone ships the replica surface), while every other system is N/A there for
-lack of one. We mitigate as follows: (i)~this
-statement is prominent; (ii)~we report DinoMem's \emph{gap} (S2) and that its S4 result
-is engine-tested-but-not-yet-a-live-measured-win in the same figure and table;
-(iii)~we document an operational failure in our own system (\S\ref{sec:operational}); (iv)~every
-scenario is a public, deterministic script and every result links to a raw trial log,
-so any reader can reproduce or refute; (v)~adapters are open to PRs from competing
-vendors. We report no single aggregate score.
+The authors develop \textbf{DinoMem}, one of the seven systems under test---and in
+the July 2026 runs reported here, DinoMem passes \emph{every} correctness metric in
+the grid. A benchmark whose authors' own system posts a perfect column deserves
+maximal scrutiny, so we condition each headline cell explicitly rather than asking
+for trust. \textbf{S2} is a pass \emph{only under a disclosed contract}: the caller
+must key the fact (\texttt{factKey}); plain writes get no temporal disambiguation,
+whereas Zep's pass requires no caller opt-in---on out-of-box behavior, Zep's
+temporal contract is strictly stronger than ours. \textbf{S1/S6} passed only after
+rotating LLM quota; the committed run pair (\texttt{2026-07-06-010838} crash,
+\texttt{2026-07-06-013045} pass) documents that under quota pressure our system
+crashes rather than degrades. \textbf{S4} is a measured pass, but at smoke scale
+(2 replicas, 4 ops, 10 delivery orders), and DinoMem is also the \emph{only} system
+with a drivable replica surface---an asymmetry that favors us by construction, since
+no competitor can even be measured there. The engine's convergence claim rests on a
+property-test suite (order-independence across shuffles, the CvRDT laws,
+no-lost-writes against an independent brute-force reference, a CRDT-vs-naive-LWW
+ablation), \emph{not} a machine-checked proof; we claim ``property-tested,'' never
+``proven'' or ``guaranteed.'' We mitigate as follows: (i)~this statement is
+prominent; (ii)~the June 2026 runs---in which the same product failed S2's temporal
+assertions and crashed under quota---remain committed and published alongside the
+July runs, never overwritten; (iii)~we document two defects in our own system found
+during this work (quota-coupled 5xx, a filter parameter that performs no filtering;
+\S\ref{sec:operational}); (iv)~every scenario is a public, deterministic script, no
+metric is decided by an LLM judge, and every cell links to a committed raw trial
+log, so any reader can reproduce or refute; (v)~adapters and configuration
+overrides are open to PRs from competing vendors, with maintainer merge rights
+limited to harness code. We report no single aggregate score, and we encourage
+readers to treat any all-green column---ours included---as a claim to reproduce,
+not a conclusion to accept.
 
 \section{Conclusion \& Future Work}
 dinomem-bench reframes memory evaluation from single-agent recall to multi-agent
-coordination, and finds the capability landscape sharply differentiated and, on one
-axis (CRDT convergence), drivable in only one shipping product---DinoMem, which alone
-exposes a replica/sync API over a property-tested CvRDT engine, while the rest remain
-unverifiable for lack of any replica surface. The S4 harness already drives that API;
-v0.2 will record the live cross-system S4 head-to-head against a deployed instance (so
-the grid cell can flip from engine-tested to measured), tighten
-per-operation cost instrumentation, increase $N$ with seeds for confidence intervals,
-and add an adversarial (prompt-injection-via-memory) scenario. We invite the community
-to run the harness, contribute adapters, and challenge the methodology.
+coordination, and finds the capability landscape sharply differentiated:
+contradiction handling, conflict policy, and measured replica convergence in one
+system; automatic temporal invalidation in another; caller-keyed temporal
+versioning validated end-to-end at application level; and a raw vector store
+matching every managed system wherever coordination machinery is not required.
+v0.2 will add a rerank-inclusive S7 operating mode (bare-search latency understates
+the recommended configuration by $3$--$6\times$), an audit-receipt scenario (S8),
+larger-scale S4 (more replicas, more concurrent ops, adversarial interleavings),
+per-operation cost instrumentation, confidence intervals from seeded repeats, and
+an adversarial (prompt-injection-via-memory) scenario. We invite the community to
+run the harness, contribute adapters, and challenge the methodology.
 
 \bibliographystyle{plainnat}
 \bibliography{refs}
