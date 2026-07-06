@@ -207,13 +207,25 @@ conflicts DO work because they: (1) set `human_in_loop` policy first, and (2) us
 the `detectConflicts` LLM-severity path (not just concurrent writes). This is
 consistent — the regular write path is not the same as the CRDT replica path.
 
-### P1 bi-temporal (factKey supersession) — confirmed structural
+### P1 bi-temporal (factKey supersession) — OBSERVED live (2026-07-06)
 
 Writing with `factKey: "fincil.purchase.<slug>"` and `workflowId: userId` — when
 the same factKey is written twice (same purchase query slug), the second write closes
 the prior validity window and opens a new one. `GET /v1/memory/:id/history` returns
-the supersession lineage. In the Fincil test, 3 different slugs were used so no
-supersession occurred this run (by design), but the mechanism is confirmed.
+the supersession lineage.
+
+**Live observation (2026-07-06):** ran a second debate on the same query as D1
+("buy a new laptop for my freelance design work") at ₹1,50,000 using the same
+`workflowId = "dinomem-livetest-888408cb"`. All 4 assertions passed (8/8):
+
+- **4a** ✅ Recall (pre-write) surfaced D1 (₹80k, topRel=1.0, 2 hits kept)
+- **4b** ✅ D1 `valid_to` closed; bidirectional lineage (`superseded_by` on D1,
+  `supersedes[]` on new write containing full D1 record with timestamps)
+- **4c** ✅ Fresh reranked search returns only new fact (₹1,50,000); D1 absent
+- **4d** ✅ 4 fincil-probe receipts + 1 fincil-council receipt (P2 no regression)
+
+New writeId: `527a0e84-05d1-40fc-b8d3-5c2f13ee009a`. Full evidence in
+`fincil-remastered/notes/dinomem-test/05-p1-supersession.md`.
 
 ### P2 receipts — confirmed per-search
 
