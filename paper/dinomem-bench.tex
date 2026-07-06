@@ -227,6 +227,14 @@ reference, and a CRDT-vs-naive-LWW ablation). Every other system remains N/A for
 lack of a replica surface: their convergence is \emph{unmeasured}, not failed. The
 live run's scale is deliberately small (2 replicas, 4 concurrent ops)---a
 correctness check, not a distributed-systems stress test (\S\ref{sec:threats}).
+A scope note: S4 asserts \emph{structural} convergence---replicas reaching an
+identical, lossless, deterministic state---not the \emph{semantic} correctness of
+the surfaced value. An LWW register resolves concurrent writes to one key by
+timestamp: both values persist in history (lossless), but one is surfaced, and
+whether the surfaced value is the semantically right one is a different question,
+addressed in DinoMem by the separate conflict-detection and policy layer (S1/S6)
+rather than by the CRDT. Benchmarking semantic merge quality---the rate at which
+structurally convergent merges surface the wrong meaning---is future work.
 \textbf{S6 (policy):} DinoMem satisfies all four policies to spec; no other system
 ships conflict policies.
 
@@ -254,7 +262,10 @@ actually run.
   \centering
   \small
   \caption{S7 write latency (ms). mean$\pm$std and percentiles over the per-op samples
-  in a run. $^{\dagger}$single run at small $N$; mean/std omitted.}
+  in a run. $^{\dagger}$single run at small $N$; mean/std omitted.
+  $^{\ddagger}$application-measured \emph{search} latency in DinoMem's recommended
+  relevance mode (range 2586--6294\,ms, \S\ref{sec:dogfood}); shown in the primary
+  table so the recommended configuration is not understated by the bare-mode rows.}
   \label{tab:latency}
   \begin{tabular}{lrrrrr}
     \toprule
@@ -267,6 +278,8 @@ actually run.
     Mem0         & $1119.5\pm145.1$ & 1082.4 & 1498.4 & 1661.0 & 40 \\
     Supermemory  & \na & 2221.6 & 7172.5 & --- & ${\sim}30^{\dagger}$ \\
     Cognee       & \na & 20965.4 & 28168.0 & --- & ${\sim}5^{\dagger}$ \\
+    \midrule
+    DinoMem search, \texttt{rerank:true}$^{\ddagger}$ & $4158.7$ & 3596.0 & --- & --- & $3^{\ddagger}$ \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -280,8 +293,10 @@ Static metrics understate what running the systems revealed.
   completed only after provisioning fresh model quota, and in July the S1 scenario
   crashed on a quota 429 surfaced as \texttt{500} (run \texttt{2026-07-06-010838})
   and passed only after rotating to a fresh key (run \texttt{2026-07-06-013045}).
-  Both runs are committed---an honest demonstration of fragility in the authors' own
-  system.
+  Both runs are committed and retained in the published results. Decoupling
+  extraction from the synchronous write path (write-ahead ingest, asynchronous
+  consolidation) would remove this failure mode; it is the highest-priority
+  remediation for the system.
   \item \textbf{A documented filter that does not filter (DinoMem).} The live
   endpoint accepts a \texttt{factKeyPrefix} search parameter but performs no
   filtering with it (all org memories are returned regardless). Callers must isolate
@@ -348,7 +363,11 @@ unavailable to them. \textbf{Coverage.} S4 is measured for exactly one system, a
 at deliberately small scale (2 replicas, 4 concurrent ops, 10 delivery orders): it
 establishes black-box convergence, not behavior under partition, scale, or
 adversarial interleavings. For all other systems CRDT convergence is
-\emph{unmeasured}, not failed. \textbf{Free-tier artifacts.} Quotas, indexing lag,
+\emph{unmeasured}, not failed. \textbf{Measurement symmetry.} We report Supermemory's ${\sim}50$\,s indexing
+latency but do not yet instrument DinoMem's own time-to-availability (its writes
+return an \texttt{embeddingPending} flag; extraction settles asynchronously); v0.2
+will report time-to-availability uniformly for all systems.
+\textbf{Free-tier artifacts.} Quotas, indexing lag,
 and search recall on free tiers may differ from paid deployments.
 \textbf{Versioning.} Hosted backends may change server-side behavior we cannot pin;
 we pin client/package versions, commit run manifests with git SHAs, and re-publish

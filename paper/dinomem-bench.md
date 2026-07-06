@@ -236,6 +236,7 @@ The complete matrix (✅ pass · ❌ fail · — N/A · ℹ️ measurement):
 | S6 policy×4 + surfaced | — | — | — | — | — | — | **✅** |
 | S7 write p50 (ms) | 470 | 1082 | 300 | 20965 | 2222 | 271 | 1089 |
 | S7 search p50 (ms) | 454 | 505 | 312 | 1919 | 1870 | 308 | 1025 |
+| S7 search, `rerank:true` (ms, app-measured, N=3) | — | — | — | — | — | — | **2586–6294** |
 
 <sub>\* Supermemory's scope cells are confounded (§7). † Cognee's zero-setup mode
 enforces no isolation (§7). ‡ DinoMem's S2 pass is conditional on the caller keying
@@ -280,7 +281,16 @@ invalidates automatically (§6, §11). S7 = bare-search mode; DinoMem's recommen
   proof. Every other system stays N/A for lack of a replica surface: their
   convergence is *unmeasured*, not failed. The live run's scale is deliberately
   small (2 replicas, 4 concurrent ops) — a correctness check, not a
-  distributed-systems stress test (§10). The reference implementation also passes (§3.5).
+  distributed-systems stress test (§10). A scope note: S4 asserts *structural*
+  convergence — replicas reaching an identical, lossless, deterministic state — not
+  the *semantic* correctness of the surfaced value. An LWW register resolves
+  concurrent writes to one key by timestamp: both values persist in history
+  (lossless), but one is surfaced, and whether the surfaced value is the
+  semantically right one is a different question, addressed in DinoMem by the
+  separate conflict-detection and policy layer (S1/S6) rather than by the CRDT.
+  Benchmarking semantic merge quality — the rate at which structurally convergent
+  merges surface the wrong meaning — is future work. The reference implementation
+  also passes (§3.5).
 - **S6 (policy).** DinoMem satisfies all four policies to spec; no other system
   ships conflict policies.
 - **S7 (latency).** A ~70× spread: LangMem/Zep ≈ 300 ms; pgvector ≈ 500 ms;
@@ -300,8 +310,10 @@ Static metrics understate what running the systems revealed:
   than degrading gracefully. This reproduced across a month: the June S6 run
   completed only after provisioning fresh model quota, and in July the S1 scenario
   crashed on a quota 429 surfaced as `500` (run `2026-07-06-010838`) and passed only
-  after rotating to a fresh key (run `2026-07-06-013045`). Both runs are committed —
-  an honest demonstration of operational fragility in the authors' own system.
+  after rotating to a fresh key (run `2026-07-06-013045`). Both runs are committed
+  and retained in the published results. Decoupling extraction from the synchronous
+  write path (write-ahead ingest, asynchronous consolidation) would remove this
+  failure mode; it is the highest-priority remediation for the system.
 - **A documented filter that does not filter (DinoMem).** The live endpoint accepts
   a `factKeyPrefix` search parameter but performs no filtering with it (all org
   memories are returned regardless). Callers must isolate by `workflowId`, which
@@ -376,6 +388,10 @@ the coordination axes above.
   scale (2 replicas, 4 concurrent ops, 10 delivery orders): it establishes black-box
   convergence, not behavior under partition, scale, or adversarial interleavings.
   For all other systems CRDT convergence is *unmeasured*, not failed.
+- **Measurement symmetry.** We report Supermemory's ~50 s indexing latency but do
+  not yet instrument DinoMem's own time-to-availability (its writes return an
+  `embeddingPending` flag; extraction settles asynchronously); v0.2 will report
+  time-to-availability uniformly for all systems.
 - **Free-tier artifacts.** Quotas, indexing lag, and search recall on free tiers may
   differ from paid deployments; we document the tier per system.
 - **Versioning.** Hosted backends can change server-side behavior we cannot pin; we
