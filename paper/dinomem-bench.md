@@ -6,9 +6,9 @@
 
 > **Author note (delete before submission):** this is a complete first draft in
 > Markdown for editing; convert to LaTeX (e.g. `pandoc`) for arXiv. All numbers are
-> from committed runs (`results/COMPARISON.md`). **Verify every external citation's
-> arXiv ID/year against the source before submission** — the related-work IDs below
-> are carried from the project's design RFC and some are placeholders.
+> from committed runs (`results/COMPARISON.md`). All arXiv IDs below were verified
+> against arxiv.org on 2026-07-06 (titles + authors match); venue claims (ACL/ICLR)
+> were verified in `refs.bib` on 2026-06-13.
 
 ---
 
@@ -447,11 +447,11 @@ methodology.
 
 ## References
 
-*(IDs carried from the project design RFC — verify before submission.)*
+*(All arXiv IDs verified against arxiv.org 2026-07-06.)*
 
 - [cemri2026] Cemri et al. *Why Do Multi-Agent LLM Systems Fail?* arXiv:2503.13657.
-- [codecrdt2025] *CodeCRDT: CRDT semantics for multi-agent code editing.* arXiv:2510.18893.
-- [semconsensus2026] *Semantic Consensus: process-aware conflict detection in enterprise multi-agent systems.* arXiv:2604.16339.
+- [codecrdt2025] Pugachev. *CodeCRDT: Observation-Driven Coordination for Multi-Agent LLM Code Generation.* arXiv:2510.18893.
+- [semconsensus2026] Acharya. *Semantic Consensus: Process-Aware Conflict Detection and Resolution for Enterprise Multi-Agent LLM Systems.* arXiv:2604.16339.
 - [maharana2024] Maharana et al. *LoCoMo: Evaluating Long-Term Conversational Memory.* ACL 2024.
 - [longmemeval2025] *LongMemEval.* ICLR 2025.
 - [mem0_2025] *Mem0.* ECAI 2025, arXiv:2504.19413.
