@@ -61,8 +61,8 @@ contradicting one another's work — as one of three top-level failure categorie
 specification and coordination issues rather than model capability [acharya2026semconsensus].
 Memory is the substrate on which that coordination either succeeds or compounds into failure.
 
-Yet the benchmarks the field cites — LoCoMo [maharana2024], LongMemEval
-[longmemeval2025] — measure single-agent long-context recall. They answer "can the
+Yet the benchmarks the field cites — LoCoMo [maharana2024locomo], LongMemEval
+[wu2025longmemeval] — measure single-agent long-context recall. They answer "can the
 model retrieve what was said?", not "when two agents disagree about the same entity,
 what does the system do?" These are different questions, and the second is the one
 that breaks production multi-agent apps.
@@ -97,24 +97,24 @@ convergence test can drive.
 
 ## 2. Related Work
 
-**Single-agent memory benchmarks.** LoCoMo [maharana2024] and LongMemEval
-[longmemeval2025] evaluate long-term recall in extended single-agent dialogues. The
-Mem0 system paper [mem0_2025] compares memory systems primarily on single-agent
+**Single-agent memory benchmarks.** LoCoMo [maharana2024locomo] and LongMemEval
+[wu2025longmemeval] evaluate long-term recall in extended single-agent dialogues. The
+Mem0 system paper [chhikara2025mem0] compares memory systems primarily on single-agent
 retrieval quality and cost. Letta has argued such conversation benchmarks measure
-retrieval rather than agentic memory [letta2025]. We complement, not replace, these:
+retrieval rather than agentic memory [letta2025locomo]. We complement, not replace, these:
 single-agent recall remains important; we add the orthogonal multi-agent dimension.
 
-**Temporal knowledge graphs.** Zep/Graphiti [zep2025] maintain bitemporal facts with
+**Temporal knowledge graphs.** Zep/Graphiti [rasmussen2025zep] maintain bitemporal facts with
 validity intervals; our S2 directly exercises that capability and our S6 the
 conflict-policy literature.
 
-**Multi-agent coordination and CRDTs.** Cemri et al. [cemri2026] motivate the
+**Multi-agent coordination and CRDTs.** Cemri et al. [cemri2025mast] motivate the
 coordination-failure framing. CodeCRDT [codecrdt2025] adapts convergence testing to
 multi-agent code editing; we borrow its order-independence framing for S4. Work on
-process-aware conflict detection in enterprise multi-agent systems [semconsensus2026]
+process-aware conflict detection in enterprise multi-agent systems [acharya2026semconsensus]
 informs S6's policy taxonomy.
 
-**Agent memory architectures.** MemGPT [packer2023] frames the LLM as an operating
+**Agent memory architectures.** MemGPT [packer2023memgpt] frames the LLM as an operating
 system with paged memory; it is a memory *architecture* rather than a benchmark, and
 is representative of the systems whose coordination properties we measure.
 
@@ -449,12 +449,12 @@ methodology.
 
 *(All arXiv IDs verified against arxiv.org 2026-07-06.)*
 
-- [cemri2026] Cemri et al. *Why Do Multi-Agent LLM Systems Fail?* arXiv:2503.13657.
-- [codecrdt2025] Pugachev. *CodeCRDT: Observation-Driven Coordination for Multi-Agent LLM Code Generation.* arXiv:2510.18893.
-- [semconsensus2026] Acharya. *Semantic Consensus: Process-Aware Conflict Detection and Resolution for Enterprise Multi-Agent LLM Systems.* arXiv:2604.16339.
-- [maharana2024] Maharana et al. *LoCoMo: Evaluating Long-Term Conversational Memory.* ACL 2024.
-- [longmemeval2025] *LongMemEval.* ICLR 2025.
-- [mem0_2025] *Mem0.* ECAI 2025, arXiv:2504.19413.
-- [zep2025] *Zep: a temporal knowledge graph architecture for agent memory.* arXiv:2501.13956.
-- [packer2023] Packer et al. *MemGPT: Towards LLMs as Operating Systems.* arXiv:2310.08560.
-- [letta2025] Letta. *Long conversation ≠ LoCoMo.* Blog, 2025.
+- [cemri2025mast] Cemri et al. *Why Do Multi-Agent LLM Systems Fail?* arXiv:2503.13657, 2025.
+- [codecrdt2025] Pugachev. *CodeCRDT: Observation-Driven Coordination for Multi-Agent LLM Code Generation.* arXiv:2510.18893, 2025.
+- [acharya2026semconsensus] Acharya. *Semantic Consensus: Process-Aware Conflict Detection and Resolution for Enterprise Multi-Agent LLM Systems.* arXiv:2604.16339, 2026.
+- [maharana2024locomo] Maharana et al. *Evaluating Very Long-Term Conversational Memory of LLM Agents.* ACL 2024 (arXiv:2402.17753).
+- [wu2025longmemeval] Wu et al. *LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory.* ICLR 2025 (arXiv:2410.10813).
+- [chhikara2025mem0] Chhikara et al. *Mem0: Building Production-Ready AI Agents with Scalable Long-Term Memory.* arXiv:2504.19413, 2025.
+- [rasmussen2025zep] Rasmussen et al. *Zep: A Temporal Knowledge Graph Architecture for Agent Memory.* arXiv:2501.13956, 2025.
+- [packer2023memgpt] Packer et al. *MemGPT: Towards LLMs as Operating Systems.* arXiv:2310.08560, 2023.
+- [letta2025locomo] Letta. *Memory Benchmarks Measure Retrieval, Not Agent Memory.* Letta blog, 2025.
